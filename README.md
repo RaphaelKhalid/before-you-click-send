@@ -3,7 +3,7 @@
 **An interactive onboarding module for using AI at work without causing a disaster.**
 Ten decisions, two weeks, one nervous new hire.
 
-▶️ **Live:** _(Vercel URL added on deploy)_
+▶️ **Live:** https://before-you-click-send.vercel.app
 
 A single, self-contained HTML file. No build step, no server, no dependencies, no tracking, no data leaves the browser. Open `index.html` and it runs.
 
