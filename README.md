@@ -3,9 +3,31 @@
 **An interactive onboarding module for using AI at work without causing a disaster.**
 Ten decisions, two weeks, one nervous new hire.
 
-▶️ **Live:** https://before-you-click-send.vercel.app
+**Two editions, same engine:**
 
-A single, self-contained HTML file. No build step, no server, no dependencies, no tracking, no data leaves the browser. Open `index.html` and it runs.
+| Edition | For | Live |
+|---------|-----|------|
+| 🏢 **Workplace** | new hires & staff at any org rolling out AI | https://before-you-click-send.vercel.app |
+| 🎓 **AP Classroom** (*Before You Hit Post*) | high-school / AP teachers | https://before-you-click-send.vercel.app/teachers |
+
+Each edition is a single, self-contained HTML file — no server, no dependencies, no tracking, nothing leaves the browser. Open it and it runs.
+
+## How the two editions stay in sync
+
+The whole point of the module is that the ten scenarios are **structured data** — an
+organisation can reskin them without touching the engine. This repo demonstrates that
+literally: one shared engine, one dataset per edition, assembled by a tiny zero-dependency build.
+
+```
+src/shell.html          the engine + styles + doodle SVG (edition-agnostic)
+src/data.workplace.js    → index.html      (workplace edition)
+src/data.school.js       → teachers.html   (AP classroom edition)
+build.js                node build.js  →  writes both HTML files
+```
+
+To spin up your own edition, copy a `src/data.*.js`, rewrite the ten scenarios / sources /
+labels for your context, add it to the `EDITIONS` list in `build.js`, and run `node build.js`.
+The generated HTML files are committed so the site deploys as pure static with no build needed.
 
 ---
 
@@ -56,18 +78,22 @@ findings. The in-app **"Why this exists"** page lists all sources and is explici
 about what's dramatised, what's cited, and where the framing is contested rather
 than settled.
 
-## Deploy your own / reskin it
+The **AP Classroom** edition (`src/data.school.js`) reskins all ten into a teacher's
+grading week — FERPA-safe drafting, anonymising the gradebook, AI-writing-detector bias,
+a deepfake "principal" call, a grade-changing agent — grounded in the same literature plus
+the PowerSchool breach and Stanford's detector-bias findings.
 
-The ten scenarios live as a structured `DAYS` array near the top of the `<script>`
-in `index.html`. An organisation can swap in its own tools, policies, and figures
-without touching the rest of the app. Runs in any browser; drop it into onboarding,
-a lunch-and-learn, or a security-awareness week.
+## Run / deploy
 
 ```bash
-# local
-open index.html          # or just double-click it
+# build both editions from source (no dependencies)
+node build.js
 
-# deploy (static, zero config)
+# preview locally — just open the generated files
+open index.html        # workplace     (or double-click)
+open teachers.html     # AP classroom
+
+# deploy (static, zero config; /teachers is served via cleanUrls)
 vercel --prod
 ```
 
