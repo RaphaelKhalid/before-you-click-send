@@ -41,6 +41,10 @@
   .lnk:hover{color:#1a1a1a}
   .confpop{animation:meterPop .45s ease}
   .printonly{display:none}
+  html,body{overflow-x:hidden;-webkit-text-size-adjust:100%}
+  img,svg{max-width:100%;height:auto}
+  #muteBtn:hover{transform:translateY(-2px)}
+  @media (max-width:480px){ #app{padding:16px 13px 74px} #muteBtn{bottom:10px;right:10px} }
   @media print{[data-noprint]{display:none!important}.printonly{display:block!important}html,body{background:#fff;background-image:none}}
 </style>
 </head>
@@ -81,6 +85,7 @@ const state = { screen:'landing', day:0, choices:Array(10).fill(null), confidenc
 let emailTimer = null;
 
 function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function srcLink(s){ return s&&s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;text-underline-offset:2px">${esc(s.cite)}&nbsp;&#8599;</a>` : esc(s&&s.cite||''); }
 function shuffle(a){ a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 
 const start = () => { state.screen='day'; state.day=0; state.choices=Array(10).fill(null); state.confidence=0.06; state.lastFilled=Math.round(0.06*22); state.orders=DAYS.map(()=>shuffle([0,1,2])); render(); };
@@ -153,14 +158,14 @@ function computeVals(){
   const toWorkOn=Object.keys(habitBroke).map(h=>({h:+h, sev:habitBroke[h]})).sort((a,b)=>b.sev-a.sev).slice(0,3).map(x=>HABITS[x.h]);
   const items=[]; let di=0;
   s.choices.forEach((ch,i)=>{ if(ch&&!ch.safe && di<6){ items.push({text:DAYS[i].incident, delay:(0.25+di*0.45).toFixed(2)}); di++; } });
-  if(unsafeCount>6) items.push({text:"…and "+(unsafeCount-6)+" more, still landing.", delay:(0.25+di*0.45).toFixed(2)});
+  if(unsafeCount>6) items.push({text:"And "+(unsafeCount-6)+" further consequences from the same two weeks.", delay:(0.25+di*0.45).toFixed(2)});
   if(unsafeCount>=6) items.push({text:DATASET.incidentChannel, delay:(0.25+(di+1)*0.45).toFixed(2)});
-  const incidentClose = unsafeCount>=6 ? "You will be fine. Probably. This is why the training exists." : "None of it was malicious. That's the part nobody warns you about.";
+  const incidentClose = unsafeCount>=6 ? "Most of these outcomes are preventable, which is the purpose of this course." : "None of these were deliberate, which is exactly what makes them easy to repeat.";
 
-  let stampCol=GREEN, stampTop='— NO DATA —', stampMid='COMPLETED', stampBot='— WAS LEAKED —', certSub='Awarded, with mild relief, to';
-  if(unsafeCount>=1&&unsafeCount<=2){ stampTop='— COMPLETED —'; stampMid='MOSTLY'; stampBot=unsafeCount===1?'— one slip —':'— two slips —'; }
-  else if(unsafeCount>=3&&unsafeCount<=5){ stampCol=RED; stampTop='COMPLETED*'; stampMid='*terms'; stampBot='apply'; certSub='Awarded, pending review, to'; }
-  else if(unsafeCount>=6){ stampCol=RED; stampTop='— SEE —'; stampMid=DATASET.escalateStamp; stampBot='re: completed'; certSub='Awarded, and immediately escalated, to'; }
+  let stampCol=GREEN, stampTop='COURSE', stampMid='PASSED', stampBot='no data exposed', certSub='Completed by';
+  if(unsafeCount>=1&&unsafeCount<=2){ stampTop='COURSE'; stampMid='PASSED'; stampBot=(unsafeCount===1?'1 to review':'2 to review'); }
+  else if(unsafeCount>=3&&unsafeCount<=5){ stampCol=RED; stampTop='REVIEW'; stampMid='ADVISED'; stampBot='see summary'; certSub='Completed, with items to review, by'; }
+  else if(unsafeCount>=6){ stampCol=RED; stampTop='RETAKE'; stampMid='ADVISED'; stampBot='see summary'; certSub='Completed; a retake is recommended for'; }
 
   return {
     showChrome:['day','consequence','friday'].includes(s.screen),
@@ -341,7 +346,7 @@ function landing(){
 }
 
 function about(){
-  const src = SOURCES.map(s=>`<div style="border-left:3px solid #1a1a1a;padding:6px 12px;font-size:12.5px;line-height:1.5;background:#fff"><b>${esc(s.topic)}</b> &mdash; ${esc(s.text)} <span style="color:#777">(${esc(s.cite)})</span></div>`).join('');
+  const src = SOURCES.map(s=>`<div style="border-left:3px solid #1a1a1a;padding:6px 12px;font-size:12.5px;line-height:1.5;background:#fff"><b>${esc(s.topic)}</b> &mdash; ${esc(s.text)} <span style="color:#777">(${srcLink(s)})</span></div>`).join('');
   const secs = DATASET.about.sections.map(x=>`<div style="font-family:'Patrick Hand',cursive;font-size:19px;margin:20px 0 6px">${esc(x.h)}</div><p style="font-size:14px;line-height:1.6;margin:0 0 8px;color:#333">${esc(x.p)}</p>`).join('');
   return `<div style="animation:fadeUp .4s ease both;max-width:600px;margin:0 auto">
     <div data-act="landing" class="lnk" style="font-size:13px;color:#555;margin-bottom:14px">&larr; back</div>
@@ -439,7 +444,7 @@ function consequence(v){
       <div style="font-size:13.5px;line-height:1.5;margin-bottom:9px">${v.bad?'The move was: ':''}<b>${esc(safeOpt.text)}</b></div>
       <div style="display:inline-flex;align-items:center;gap:6px;font-size:12px;background:#eef5ee;border:1.5px solid ${GREEN};border-radius:14px 4px 14px 4px;padding:3px 11px;color:#1a1a1a"><span style="color:${GREEN}">&#9745;</span>${esc(habit)}</div>
       <div data-act="cite" style="cursor:pointer;font-size:11px;color:#777;margin-top:9px;text-decoration:underline;text-underline-offset:3px">${state.citeOpen?'&#9662;':'&#9656;'} the evidence</div>
-      ${state.citeOpen?`<div style="font-size:11.5px;line-height:1.5;color:#555;border-top:1px solid #e2e0d7;margin-top:7px;padding-top:7px"><b>${esc(src.topic)}</b> &mdash; ${esc(src.text)} <span style="color:#888">(${esc(src.cite)})</span></div>`:''}
+      ${state.citeOpen?`<div style="font-size:11.5px;line-height:1.5;color:#555;border-top:1px solid #e2e0d7;margin-top:7px;padding-top:7px"><b>${esc(src.topic)}</b> &mdash; ${esc(src.text)} <span style="color:#888">(${srcLink(src)})</span></div>`:''}
     </div>`;
   return `<div style="animation:fadeUp .4s ease both">
     <div style="font-family:'Patrick Hand',cursive;font-size:15px;letter-spacing:1px;text-transform:uppercase;color:${v.badCol}">${esc(v.consLabel)}</div>
@@ -467,7 +472,7 @@ function reviewPanel(d){
     <div style="font-size:13.5px;margin:8px 0 4px">You chose: <b style="color:${col}">${c?esc(c.short):'&mdash;'}</b> ${verdict}</div>
     ${c&&!c.safe?`<div style="font-size:13.5px;margin:4px 0"><span style="color:${GREEN}">The safe move:</span> ${esc(safeOpt.text)}</div>`:''}
     <div style="display:inline-flex;align-items:center;gap:6px;font-size:12px;background:#f4f3ee;border:1.5px solid #1a1a1a;border-radius:14px 4px 14px 4px;padding:3px 11px;margin-top:6px"><span style="color:${GREEN}">&#9745;</span>${esc(habit)}</div>
-    <div style="font-size:11px;color:#777;margin-top:8px"><b>${esc(src.topic)}</b> &mdash; <span style="color:#999">${esc(src.cite)}</span></div>
+    <div style="font-size:11px;color:#777;margin-top:8px"><b>${esc(src.topic)}</b> &mdash; <span style="color:#999">${srcLink(src)}</span></div>
   </div>`;
 }
 
@@ -587,7 +592,7 @@ function facilitator(){
       ${opts}
       <div style="font-size:12px;margin-top:6px;color:${GREEN}"><b>Do this instead:</b> ${esc(safe.note)}</div>
       <div style="font-size:12px;margin-top:4px"><b>Habit:</b> &#9745; ${esc(HABITS[dl.h])}</div>
-      <div style="font-size:11px;color:#777;margin-top:2px"><b>Source:</b> ${esc(SOURCES[dl.s].cite)}</div>
+      <div style="font-size:11px;color:#777;margin-top:2px"><b>Source:</b> ${srcLink(SOURCES[dl.s])}</div>
       <div style="font-size:12.5px;margin-top:6px;border-left:3px solid #1a1a1a;padding-left:10px"><b>Discuss:</b> ${esc(DATASET.discuss[i])}</div>
     </div>`;
   }).join('');
@@ -676,6 +681,40 @@ function countUp(el,to,dur){
   (function step(t){ const k=Math.min(1,(t-t0)/dur); el.textContent=Math.round(to*(1-Math.pow(1-k,3))); if(k<1) requestAnimationFrame(step); })(performance.now());
 }
 
+// ---- sound effects (synthesized, self-contained) ----
+const Sfx=(function(){
+  let AC=null, muted=false;
+  try{ muted = localStorage.getItem('byc_muted')==='1'; }catch(e){}
+  function ctx(){ if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return null; } } if(AC&&AC.state==='suspended'){ try{AC.resume();}catch(e){} } return AC; }
+  function tone(f,t0,dur,type,vol){ const c=ctx(); if(!c) return; const o=c.createOscillator(), g=c.createGain(); o.type=type||'sine'; o.frequency.value=f; o.connect(g); g.connect(c.destination); const s=c.currentTime+t0; g.gain.setValueAtTime(0.0001,s); g.gain.exponentialRampToValueAtTime(vol,s+0.01); g.gain.exponentialRampToValueAtTime(0.0001,s+dur); o.start(s); o.stop(s+dur+0.02); }
+  const K={
+    click:()=>tone(680,0,0.05,'triangle',0.05),
+    select:()=>{tone(540,0,0.06,'triangle',0.05);tone(760,0.05,0.07,'triangle',0.045);},
+    good:()=>{tone(660,0,0.09,'sine',0.06);tone(990,0.075,0.12,'sine',0.05);},
+    bad:()=>{tone(210,0,0.14,'sawtooth',0.045);tone(150,0.09,0.16,'sawtooth',0.038);},
+    success:()=>{[523,659,784,1047].forEach((f,i)=>tone(f,i*0.085,0.30,'sine',0.05));},
+    toggle:()=>tone(520,0,0.05,'square',0.05)
+  };
+  return { play(k){ if(muted) return; try{(K[k]||K.click)();}catch(e){} }, toggle(){ muted=!muted; try{localStorage.setItem('byc_muted',muted?'1':'0');}catch(e){} if(!muted) K.toggle(); return muted; }, isMuted(){ return muted; } };
+})();
+function mountMute(){
+  if(document.getElementById('muteBtn')) return;
+  const b=document.createElement('div'); b.id='muteBtn'; b.setAttribute('data-noprint','');
+  b.style.cssText='position:fixed;bottom:12px;right:12px;z-index:70;cursor:pointer;font-size:15px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:2px solid #1a1a1a;border-radius:255px 15px 225px 15px/15px 225px 15px 255px;background:#fff;transition:transform .12s ease';
+  const paint=()=>{ b.textContent=Sfx.isMuted()?'🔇':'🔊'; b.title=Sfx.isMuted()?'Sound off':'Sound on'; };
+  paint(); b.addEventListener('click',()=>{ Sfx.toggle(); paint(); });
+  document.body.appendChild(b);
+}
+function mountCursor(){
+  try{ if(!matchMedia('(hover:hover) and (pointer:fine)').matches) return; }catch(e){ return; }
+  const pen="<svg xmlns='http://www.w3.org/2000/svg' width='26' height='26'><g fill='none' stroke='#1a1a1a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 20 L17 9 l1 1 l-11 11 z' fill='#fff'/><path d='M17 9 l3 -3 2 2 -3 3 z' fill='#1a1a1a'/></g></svg>";
+  const dot="<svg xmlns='http://www.w3.org/2000/svg' width='26' height='26'><circle cx='13' cy='13' r='6' fill='#c0392b' stroke='#1a1a1a' stroke-width='2'/></svg>";
+  const u=s=>'url("data:image/svg+xml,'+encodeURIComponent(s)+'")';
+  const st=document.createElement('style');
+  st.textContent='html{cursor:'+u(pen)+' 5 21,auto}a,input,textarea,.blob,.blob2,.opt,.lnk,[data-act],[data-choose],[data-review],#muteBtn{cursor:'+u(dot)+' 13 13,pointer}';
+  document.head.appendChild(st);
+}
+
 // ---- render + events ----
 function render(){
   const v=computeVals();
@@ -695,7 +734,7 @@ function render(){
   app.innerHTML=html;
   const changed = state.screen!==state._prevScreen;
   if(changed){ window.scrollTo(0,0); state._prevScreen=state.screen; }
-  if(changed && state.screen==='cert') launchConfetti(70 + v.cleanCount*9);
+  if(changed && state.screen==='cert'){ launchConfetti(70 + v.cleanCount*9); Sfx.play('success'); }
   if(changed){ const ln=document.getElementById('leakNum'); if(ln) countUp(ln, Number(ln.dataset.to), 1100);
                const cs=document.getElementById('certScore'); if(cs) countUp(cs, Number(cs.dataset.to), 900); }
 
@@ -706,13 +745,14 @@ function render(){
     el.addEventListener('mousedown',()=>{ el.style.transform='translateY(1px)'; });
   });
   app.querySelectorAll('[data-choose]').forEach(el=>{
-    el.addEventListener('click',()=>{ const [dy,idx]=el.getAttribute('data-choose').split(':').map(Number); choose(dy,idx); });
+    el.addEventListener('click',()=>{ const [dy,idx]=el.getAttribute('data-choose').split(':').map(Number); Sfx.play(DAYS[dy].opts[idx].safe?'good':'bad'); choose(dy,idx); });
   });
   app.querySelectorAll('[data-review]').forEach(el=>{
-    el.addEventListener('click',()=>{ state.reviewOpen=Number(el.getAttribute('data-review')); render(); });
+    el.addEventListener('click',()=>{ Sfx.play('select'); state.reviewOpen=Number(el.getAttribute('data-review')); render(); });
   });
   app.querySelectorAll('[data-act]').forEach(el=>{
     el.addEventListener('click',()=>{
+      Sfx.play(el.getAttribute('data-act')==='cite'?'select':'click');
       switch(el.getAttribute('data-act')){
         case 'start': state.facilitator=false; start(); break;
         case 'about': state.screen='about'; render(); break;
@@ -734,6 +774,8 @@ function render(){
 }
 
 render();
+mountMute();
+mountCursor();
 </script>
 </body>
 </html>
