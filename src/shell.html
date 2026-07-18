@@ -55,6 +55,7 @@
     <feTurbulence type="fractalNoise" baseFrequency="0.013 0.008" numOctaves="3" seed="29" result="m"/>
     <feDisplacementMap in="SourceGraphic" in2="m" scale="12"/>
   </filter>
+  <filter id="shadow"><feGaussianBlur stdDeviation="2.5"/></filter>
 </defs></svg>
 
 <div id="app" style="max-width:720px;margin:0 auto;padding:22px 18px 80px;min-height:100vh"></div>
@@ -183,26 +184,55 @@ function computeVals(){
 
 // ---- doodle figures ----
 function frame(inner, w){ return `<svg viewBox="0 0 200 150" width="${w||210}" height="${Math.round((w||210)*0.75)}" fill="none" stroke="#1a1a1a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="14" y1="128" x2="186" y2="128"/>${inner}</svg>`; }
-function figG(x, anim, inner){ return `<g class="fig" filter="url(#rough)" style="transform-origin:${x}px 126px;animation:${anim}">${inner}</g>`; }
-const HEAD  = x=>`<path d="M${x-11} 30 q-6 7 -3 15 q4 9 14 9 q10 0 12 -10 q2 -11 -8 -15 q-9 -3 -15 1z"/>`;
-const BODY  = x=>`<path d="M${x} 53 q-2 22 0 44"/>`;
-const LEGS  = x=>`<path d="M${x} 97 q-8 15 -13 30"/><path d="M${x} 97 q8 15 13 30"/>`;
-const SMILE = x=>`<path d="M${x-8} 32 q3 3 5 0 M${x+3} 32 q3 3 5 0"/><path d="M${x-8} 41 q8 7 16 0"/>`;
-const FROWN = x=>`<path d="M${x-8} 33 l5 5 M${x+8} 33 l-5 5"/><path d="M${x-7} 46 q7 -5 14 0"/>`;
-const FLAT  = x=>`<path d="M${x-6} 34 q2 2 4 0 M${x+2} 34 q2 2 4 0"/><path d="M${x-6} 44 h12"/>`;
-const SHOCK = x=>`<g stroke="#c0392b" stroke-width="2.2"><path d="M${x-30} 26 l-13 -11 M${x+30} 26 l13 -11 M${x-36} 50 l-15 2 M${x+36} 50 l15 2 M${x-16} 14 l-4 -12 M${x+16} 14 l4 -12"/></g>`;
-const POSES = {
-  cheer:     x=>figG(x,'bob 2.4s ease-in-out infinite', HEAD(x)+SMILE(x)+BODY(x)+LEGS(x)+`<path d="M${x} 60 q-13 -16 -24 -30"/><path d="M${x} 60 q13 -16 24 -30"/>`),
-  celebrate: x=>figG(x,'jump 1.5s ease-in-out infinite', HEAD(x)+SMILE(x)+BODY(x)+LEGS(x)+`<path d="M${x} 58 q-9 -20 -13 -34"/><path d="M${x} 58 q9 -20 13 -34"/>`)+`<g stroke="#2f7d32" stroke-width="2"><path d="M${x-31} 22 l-6 -6 M${x+31} 22 l6 -6 M${x-36} 40 l-8 -2 M${x+36} 40 l8 -2"/></g>`,
-  point:     x=>figG(x,'nod 2.6s ease-in-out infinite', HEAD(x)+SMILE(x)+BODY(x)+LEGS(x)+`<path d="M${x} 62 q-11 6 -15 1"/><path d="M${x} 60 q16 -7 30 -12"/><path d="M${x+30} 48 l3 -4"/>`),
-  coffee:    x=>figG(x,'sway 5s ease-in-out infinite', HEAD(x)+FLAT(x)+BODY(x)+LEGS(x)+`<path d="M${x} 62 q-12 8 -16 15"/><path d="M${x} 62 q9 3 13 -3"/><rect x="${x+11}" y="50" width="10" height="9" rx="1"/><path d="M${x+16} 47 q2 -4 -1 -7" stroke-width="1.4"/>`),
-  think:     x=>figG(x,'sway 6s ease-in-out infinite', HEAD(x)+`<path d="M${x-6} 34 q2 2 4 0 M${x+2} 34 q2 2 4 0"/><path d="M${x-4} 44 q6 2 10 0"/>`+BODY(x)+LEGS(x)+`<path d="M${x} 62 q-14 4 -16 12"/><path d="M${x} 60 q10 -4 6 -14"/>`),
-  shrug:     x=>figG(x,'sway 4s ease-in-out infinite', HEAD(x)+FLAT(x)+BODY(x)+LEGS(x)+`<path d="M${x} 62 q-14 3 -20 -6"/><path d="M${x} 62 q14 3 20 -6"/>`),
-  panic:     x=>figG(x,'swayHard 1.2s ease-in-out infinite', HEAD(x)+FROWN(x)+BODY(x)+LEGS(x)+`<path d="M${x} 60 q-13 -16 -24 -30"/><path d="M${x} 60 q13 -16 24 -30"/>`)+SHOCK(x),
-  facepalm:  x=>figG(x,'jitter .5s ease-in-out infinite', HEAD(x)+`<path d="M${x-6} 42 q6 3 12 0"/>`+BODY(x)+LEGS(x)+`<path d="M${x} 60 q4 -12 -6 -16"/><path d="M${x} 62 q-11 10 -13 20"/>`),
-  slump:     x=>figG(x,'bob 3.6s ease-in-out infinite', `<g transform="rotate(6 ${x} 40)">`+HEAD(x)+`<path d="M${x-6} 41 h11"/></g>`+BODY(x)+`<path d="M${x} 97 q-4 16 -6 30"/><path d="M${x} 97 q4 16 6 30"/><path d="M${x} 60 q-8 12 -10 24"/><path d="M${x} 60 q8 12 10 24"/>`)
-};
-function person(pose, x){ x=(x==null?100:x); return (POSES[pose]||POSES.shrug)(x); }
+// Character frame: taller box, ground at y=140 to match the character's feet.
+function figFrame(inner, w){ return `<svg viewBox="0 0 200 162" width="${w||212}" height="${Math.round((w||212)*0.81)}" fill="none" stroke="#1a1a1a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="14" y1="140" x2="186" y2="140"/>${inner}</svg>`; }
+const ANIM={ neutral:'sway 5s ease-in-out infinite', cheer:'bob 2.4s ease-in-out infinite', celebrate:'jump 1.5s ease-in-out infinite', point:'nod 2.6s ease-in-out infinite', coffee:'sway 5s ease-in-out infinite', think:'sway 6s ease-in-out infinite', shrug:'sway 4s ease-in-out infinite', panic:'swayHard 1.2s ease-in-out infinite', facepalm:'jitter .5s ease-in-out infinite', slump:'bob 3.6s ease-in-out infinite' };
+function hand(x,y){ return `<circle cx="${x}" cy="${y}" r="3.7" fill="#fff" stroke-width="2.3"/>`; }
+function figArms(pose,x){ switch(pose){
+  case 'cheer': return `<path d="M${x-15} 68 q-10 -13 -18 -28" stroke-width="3"/><path d="M${x+15} 68 q10 -13 18 -28" stroke-width="3"/>`+hand(x-35,38)+hand(x+35,38);
+  case 'celebrate': return `<path d="M${x-15} 66 q-8 -18 -12 -32" stroke-width="3"/><path d="M${x+15} 66 q8 -18 12 -32" stroke-width="3"/>`+hand(x-28,32)+hand(x+28,32)+`<g stroke="${GREEN}" stroke-width="2"><path d="M${x-31} 20 l-5 -6 M${x+31} 20 l5 -6 M${x-38} 38 l-7 -2 M${x+38} 38 l7 -2"/></g>`;
+  case 'point': return `<path d="M${x-15} 69 q-9 5 -13 1" stroke-width="3"/>`+hand(x-29,72)+`<path d="M${x+15} 66 q12 -8 25 -14" stroke-width="3"/><path d="M${x+40} 51 l4 -3" stroke-width="2.6"/>`;
+  case 'coffee': return `<path d="M${x-15} 69 q-10 9 -13 16" stroke-width="3"/>`+hand(x-29,88)+`<path d="M${x+15} 69 q8 2 11 -3" stroke-width="3"/><rect x="${x+23}" y="55" width="12" height="10" rx="1.5" fill="#fff" stroke-width="2.2"/><path d="M${x+30} 52 q2 -4 -1 -8" stroke-width="1.5"/>`;
+  case 'think': return `<path d="M${x-15} 70 q-13 6 -14 14" stroke-width="3"/>`+hand(x-30,86)+`<path d="M${x+15} 66 q10 -3 6 -13" stroke-width="3"/>`+hand(x+20,50);
+  case 'panic': return `<path d="M${x-15} 68 q-10 -13 -18 -28" stroke-width="3"/><path d="M${x+15} 68 q10 -13 18 -28" stroke-width="3"/>`+hand(x-35,38)+hand(x+35,38)+`<g stroke="#c0392b" stroke-width="2.2"><path d="M${x-31} 22 l-11 -9 M${x+31} 22 l11 -9 M${x-40} 46 l-13 2 M${x+40} 46 l13 2"/></g>`;
+  case 'facepalm': return `<path d="M${x-15} 69 q-10 10 -12 19" stroke-width="3"/>`+hand(x-28,90)+`<path d="M${x+15} 66 q7 -12 -3 -18" stroke-width="3"/>`;
+  case 'slump': return `<path d="M${x-14} 70 q-7 12 -9 22" stroke-width="3"/><path d="M${x+14} 70 q7 12 9 22" stroke-width="3"/>`+hand(x-24,94)+hand(x+24,94);
+  default: return `<path d="M${x-15} 69 q-7 14 -6 24" stroke-width="3"/><path d="M${x+15} 69 q7 14 6 24" stroke-width="3"/>`+hand(x-22,95)+hand(x+22,95);
+}}
+function figFace(pose,x,C){
+  const eyes=C.glasses
+    ? `<circle cx="${x-6}" cy="40" r="4.4" fill="#fff" stroke-width="2"/><circle cx="${x+6}" cy="40" r="4.4" fill="#fff" stroke-width="2"/><path d="M${x-1.6} 40 h3.2 M${x+10} 39 l4 -1.5 M${x-14} 39 l4 1.5" stroke-width="1.6"/><circle cx="${x-6}" cy="40" r="1.1" fill="#1a1a1a" stroke="none"/><circle cx="${x+6}" cy="40" r="1.1" fill="#1a1a1a" stroke="none"/>`
+    : `<path d="M${x-7} 38 q1.6 2 3.2 0 M${x+3.8} 38 q1.6 2 3.2 0" stroke-width="2.3"/>`;
+  let mouth;
+  if(pose==='panic') mouth=`<ellipse cx="${x}" cy="48" rx="4" ry="3" fill="#fff" stroke-width="2.2"/>`;
+  else if(pose==='slump'||pose==='facepalm') mouth=`<path d="M${x-6} 49 q6 -3 12 0" stroke-width="2.2"/>`;
+  else if(pose==='think') mouth=`<path d="M${x-4} 47 q6 2 9 -1" stroke-width="2.2"/>`;
+  else mouth=`<path d="M${x-7} 45 q7 6 14 0" stroke-width="2.5"/>`;
+  const brows= pose==='panic'?`<path d="M${x-10} 33 l6 3 M${x+10} 33 l-6 3" stroke-width="2"/>`:'';
+  return eyes+mouth+brows;
+}
+function figHair(x,C){
+  return C.hair==='bun'
+    ? `<path d="M${x-14} 33 q5 -11 14 -11 q10 0 14 11" stroke-width="2.6"/><circle cx="${x+14}" cy="29" r="5" fill="#fff" stroke-width="2.3"/>`
+    : `<path d="M${x-12} 31 q4 -9 12 -9 q9 0 13 9" stroke-width="2.6"/><path d="M${x-3} 24 l1 -4 M${x+4} 24 l1 -4" stroke-width="1.9"/>`;
+}
+function character(pose,x){
+  x=(x==null?100:x); const C=DATASET.character||{shirt:'#8ecae6',accent:'#e07a5f',hair:'short',glasses:false,badge:true};
+  const together=(pose==='slump');
+  const legs= together
+    ? `<path d="M${x-5} 108 q-2 15 -4 26" stroke-width="3"/><path d="M${x+5} 108 q2 15 4 26" stroke-width="3"/><path d="M${x-13} 133 q5 4 11 1" stroke-width="4"/><path d="M${x+2} 134 q5 3 11 -1" stroke-width="4"/>`
+    : `<path d="M${x-8} 108 q-4 16 -6 26" stroke-width="3"/><path d="M${x+8} 108 q4 16 6 26" stroke-width="3"/><path d="M${x-20} 134 q6 4 12 1" stroke-width="4"/><path d="M${x+8} 135 q6 3 12 -1" stroke-width="4"/>`;
+  const torso=`<path d="M${x-16} 66 q16 -7 32 0 l-4 42 q-12 5 -24 0z" fill="${C.shirt}" stroke-width="3"/>`;
+  const acc= C.badge
+    ? `<path d="M${x-4} 60 l5 26 M${x+4} 60 l-1 26" stroke="${C.accent}" stroke-width="2"/><rect x="${x-4}" y="84" width="10" height="8" rx="1.5" fill="#fff" stroke="${C.accent}" stroke-width="1.6"/>`
+    : `<path d="M${x-11} 65 l11 8 l11 -8" stroke="${C.accent}" stroke-width="1.8"/><path d="M${x} 73 v32" stroke="${C.accent}" stroke-width="1.6"/><circle cx="${x-8}" cy="80" r="1.4" fill="${C.accent}" stroke="none"/><circle cx="${x+8}" cy="80" r="1.4" fill="${C.accent}" stroke="none"/>`;
+  const tilt= pose==='slump'?6:(pose==='facepalm'?4:0);
+  const headExtra = pose==='facepalm' ? `<path d="M${x-7} 40 q7 4 14 0" stroke-width="2"/>` : figFace(pose,x,C);
+  const headG=`<g${tilt?` transform="rotate(${tilt} ${x} 44)"`:''}><circle cx="${x}" cy="40" r="16" fill="#fff" stroke-width="3"/>${figHair(x,C)}${headExtra}</g>`;
+  const shadow=`<ellipse cx="${x}" cy="141" rx="${together?26:30}" ry="4.5" fill="#1a1a1a" opacity="0.15" filter="url(#shadow)"/>`;
+  return `${shadow}<g class="fig" filter="url(#rough)" stroke="#1a1a1a" stroke-linecap="round" stroke-linejoin="round" style="transform-origin:${x}px 138px;animation:${ANIM[pose]||ANIM.neutral}">${legs}${torso}${acc}${figArms(pose,x)}${headG}</g>`;
+}
+function person(pose, x){ return character(pose, x); }
 const GOOD_POSES=['cheer','celebrate','point','coffee','think'];
 const BAD_POSES=['panic','facepalm','slump'];
 
@@ -292,23 +322,13 @@ function landing(){
     <h1 style="font-family:'Patrick Hand',cursive;font-size:clamp(44px,10vw,76px);line-height:.95;margin:0 0 6px;font-weight:400">${DATASET.h1}</h1>
     <p style="font-family:'Courier Prime',monospace;font-size:15px;line-height:1.55;max-width:470px;margin:16px auto 32px;color:#333">${esc(DATASET.tagline)}</p>
     <div style="display:flex;justify-content:center;margin-bottom:34px">
-      <svg viewBox="0 0 220 175" width="240" height="190" fill="none" stroke="#1a1a1a" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="146" x2="202" y2="146"/>
-        <g filter="url(#rough)">
-          <rect x="120" y="90" width="52" height="36" rx="2"/>
-          <path d="M112 126 h68 l10 10 h-88 z"/>
-        </g>
-        <g class="fig" filter="url(#rough)" style="transform-origin:60px 144px;animation:sway 4.5s ease-in-out infinite">
-          <path d="M50 38 q-6 8 -2 17 q5 9 15 8 q11 -1 12 -12 q1 -11 -9 -15 q-10 -3 -16 2z"/>
-          <path d="M52 45 l5 4 M64 44 l5 4"/>
-          <path d="M54 58 q6 -4 11 1"/>
-          <path d="M61 62 q-3 24 -1 50"/>
-          <path d="M60 112 q-9 15 -15 33"/><path d="M60 112 q8 16 14 31"/>
-          <path d="M59 76 q-12 -13 -22 -25"/>
-          <path d="M61 76 q22 3 40 19"/>
-        </g>
-        <path d="M84 40 q4 6 0 12 q-5 -6 0 -12z" fill="#1a1a1a" stroke="none"/>
-        <text x="96" y="40" font-family="Patrick Hand,cursive" font-size="24" stroke="none" fill="#1a1a1a">?!</text>
+      <svg viewBox="0 0 210 172" width="252" height="206" fill="none" stroke="#1a1a1a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="14" y1="140" x2="196" y2="140"/>
+        <ellipse cx="150" cy="141" rx="26" ry="4" fill="#1a1a1a" opacity="0.13" filter="url(#shadow)"/>
+        <g filter="url(#rough)"><rect x="128" y="98" width="46" height="30" rx="2" fill="#fff"/><path d="M120 128 h62 l8 9 h-78 z" fill="#fff"/><path d="M137 106 h28 M137 113 h20" stroke-width="1.5"/></g>
+        ${character('think', 66)}
+        <g filter="url(#rough)"><path d="M92 22 q22 -4 26 8 q3 10 -12 12 l-4 8 l-2 -8 q-14 -2 -12 -12 q1 -6 4 -8z" fill="#fff"/></g>
+        <text x="104" y="40" text-anchor="middle" font-family="Patrick Hand,cursive" font-size="20" stroke="none" fill="#c0392b">?!</text>
       </svg>
     </div>
     <div data-act="start" class="blob" style="display:inline-block;font-family:'Patrick Hand',cursive;font-size:26px;padding:12px 44px;border:3px solid #1a1a1a;border-radius:${BLOB_RADIUS}">Start &rarr;</div>
@@ -365,7 +385,7 @@ function dayScreen(v){
       </div>
     </div>`;
   } else {
-    setupExtra=`<div style="display:flex;justify-content:center;margin:2px 0 14px">${SCENES[d]||frame(person('coffee'))}</div>`;
+    setupExtra=`<div style="display:flex;justify-content:center;margin:2px 0 14px">${SCENES[d]||figFrame(person('coffee'))}</div>`;
   }
   const opts=v.dayOptions.map(o=>`<div data-choose="${o.day}:${o.origIdx}" class="opt" style="border:2.5px solid #1a1a1a;border-radius:${o.radius};padding:15px 18px;background:#fff;font-size:14.5px;line-height:1.45;animation-delay:${(0.06*o.i+0.05).toFixed(2)}s" data-rot="${o.rot}"><b>${o.letter}.</b> ${esc(o.text)}</div>`).join('');
   return `<div style="animation:fadeUp .4s ease both">
@@ -408,7 +428,7 @@ function consequence(v){
     </div>`;
   } else {
     const pose = v.bad ? BAD_POSES[d%BAD_POSES.length] : GOOD_POSES[d%GOOD_POSES.length];
-    vis=`<div style="display:flex;justify-content:center;margin-bottom:18px">${frame(person(pose))}</div>`;
+    vis=`<div style="display:flex;justify-content:center;margin-bottom:18px">${figFrame(person(pose))}</div>`;
   }
   const dl=DATASET.dayLesson[d];
   const safeOpt=DAYS[d].opts.find(o=>o.safe)||DAYS[d].opts[0];
@@ -511,7 +531,7 @@ function incident(v){
   return `<div style="animation:fadeUp .4s ease both;text-align:center">
     <div style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:3px;color:#c0392b;text-transform:uppercase;margin-bottom:6px">${esc(DATASET.incidentKicker)}</div>
     <h2 style="font-family:'Patrick Hand',cursive;font-size:clamp(40px,9vw,64px);margin:0 0 6px;font-weight:400;color:#c0392b">The Incident</h2>
-    <div style="display:flex;justify-content:center;margin:6px 0 18px">${frame(person('panic'))}</div>
+    <div style="display:flex;justify-content:center;margin:6px 0 18px">${figFrame(person('panic'))}</div>
     <div style="max-width:530px;margin:0 auto;text-align:left;display:flex;flex-direction:column;gap:10px">${items}</div>
     <div style="max-width:530px;margin:18px auto 0;font-size:12px;color:#555">${esc(DATASET.leakLabel)}: <b style="color:#c0392b">${v.leakPct}%</b></div>
     <div style="font-family:'Patrick Hand',cursive;font-size:24px;margin:22px auto 26px;max-width:490px;color:#1a1a1a">${esc(v.incidentClose)}</div>

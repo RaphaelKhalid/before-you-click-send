@@ -15,6 +15,7 @@ const DATASET = {
   meterLegend: ["less exposed", "more exposed"],
   cardSubject: "the company’s secrets",
   cardLeak: "of company knowledge leaked",
+  character: { shirt:"#8ecae6", accent:"#e07a5f", hair:"short", glasses:false, badge:true },
   // per-day -> which habit it teaches (HABITS index) and which source backs it (SOURCES index)
   dayLesson: [
     {h:0,s:0},{h:1,s:0},{h:2,s:2},{h:3,s:1},{h:4,s:3},{h:5,s:4},{h:5,s:5},{h:6,s:6},{h:7,s:7},{h:7,s:8}

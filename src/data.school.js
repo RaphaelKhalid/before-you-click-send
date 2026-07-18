@@ -15,6 +15,7 @@ const DATASET = {
   meterLegend: ["less exposed", "more exposed"],
   cardSubject: "my students’ data",
   cardLeak: "of student data exposed",
+  character: { shirt:"#b5c99a", accent:"#bc6c25", hair:"bun", glasses:true, badge:false },
   dayLesson: [
     {h:0,s:0},{h:1,s:0},{h:2,s:2},{h:3,s:2},{h:4,s:3},{h:5,s:4},{h:5,s:5},{h:6,s:6},{h:7,s:1},{h:7,s:8}
   ],
