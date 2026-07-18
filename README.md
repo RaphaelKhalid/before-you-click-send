@@ -3,6 +3,8 @@
 **An interactive onboarding module for using AI at work without causing a disaster.**
 Ten decisions, two weeks, one nervous new hire.
 
+![Walkthrough of Before You Click Send — landing, a decision, the consequence with the safe move, the review wheel, the incident, and the certificate](demo.gif)
+
 **Two editions, same engine:**
 
 | Edition | For | Live |
