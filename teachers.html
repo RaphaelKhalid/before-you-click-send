@@ -701,7 +701,7 @@ function incident(v){
     <h2 style="font-family:'Patrick Hand',cursive;font-size:clamp(40px,9vw,64px);margin:0 0 6px;font-weight:400;color:#c0392b">The Incident</h2>
     <div style="display:flex;justify-content:center;margin:6px 0 18px">${figFrame(person('panic'))}</div>
     <div style="max-width:530px;margin:0 auto;text-align:left;display:flex;flex-direction:column;gap:10px">${items}</div>
-    <div style="max-width:530px;margin:18px auto 0;font-size:12px;color:#555">${esc(DATASET.leakLabel)}: <b style="color:#c0392b">${v.leakPct}%</b></div>
+    <div style="max-width:530px;margin:18px auto 0;font-size:12px;color:#555">${esc(DATASET.leakLabel)}: <b style="color:#c0392b"><span id="leakNum" data-to="${v.leakPct}">0</span>%</b></div>
     <div style="font-family:'Patrick Hand',cursive;font-size:24px;margin:22px auto 26px;max-width:490px;color:#1a1a1a">${esc(v.incidentClose)}</div>
     <div data-act="cert" class="blob" style="display:inline-block;font-family:'Patrick Hand',cursive;font-size:22px;padding:10px 34px;border:3px solid #1a1a1a;border-radius:${BLOB_RADIUS}">Collect your certificate anyway &rarr;</div>
   </div>`;
@@ -719,7 +719,7 @@ function cert(v){
         <div style="font-size:12px;color:#555;margin-bottom:24px">${esc(v.certSub)}</div>
         <input id="nameInput" value="${esc(v.name)}" placeholder="your name here" data-noprint style="font-family:'Patrick Hand',cursive;font-size:30px;text-align:center;border:none;border-bottom:2.5px solid #1a1a1a;background:transparent;padding:2px 8px;width:min(320px,80%);outline:none"/>
         <div id="printName" class="printonly" style="font-family:'Patrick Hand',cursive;font-size:30px;text-align:center;border-bottom:2.5px solid #1a1a1a;padding:2px 8px;width:min(320px,80%);margin:0 auto;min-height:40px">${esc(v.name)||'&nbsp;'}</div>
-        <div style="font-size:13px;margin:8px auto 0;color:#555">kept <b style="color:${GREEN}">${v.cleanCount}</b> of 10 decisions clean${v.best!=null?` &middot; best: <b>${v.best}/10</b>`:''}${newBest}</div>
+        <div style="font-size:13px;margin:8px auto 0;color:#555">kept <b style="color:${GREEN}"><span id="certScore" data-to="${v.cleanCount}">0</span></b> of 10 decisions clean${v.best!=null?` &middot; best: <b>${v.best}/10</b>`:''}${newBest}</div>
         <div style="font-size:13px;color:#333;margin:20px auto 0;max-width:440px;text-align:left">
           <div style="font-family:'Patrick Hand',cursive;font-size:18px;margin-bottom:6px;text-align:center">&mdash; the eight habits, and how you did &mdash;</div>
           ${habits}
@@ -814,6 +814,36 @@ function downloadReportCard(){
   if(document.fonts&&document.fonts.ready){ document.fonts.ready.then(go).catch(go); } else go();
 }
 
+// ---- sleek canvas polish ----
+function reducedMotion(){ try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } }
+function launchConfetti(n){
+  if(reducedMotion()) return;
+  const cv=document.createElement('canvas'); cv.setAttribute('data-noprint','');
+  cv.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:60';
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  cv.width=innerWidth*dpr; cv.height=innerHeight*dpr;
+  document.body.appendChild(cv);
+  const ctx=cv.getContext('2d'); ctx.scale(dpr,dpr);
+  const cols=['#1a1a1a','#c0392b','#2f7d32','#8ecae6','#e07a5f','#f2c94c'];
+  const N=n||90, P=[];
+  for(let i=0;i<N;i++) P.push({x:innerWidth*(0.15+0.7*Math.random()), y:-20-Math.random()*160, vx:(Math.random()-0.5)*3.2, vy:2+Math.random()*3, r:4+Math.random()*6, rot:Math.random()*6, vr:(Math.random()-0.5)*0.35, col:cols[i%cols.length], sq:Math.random()<0.6, life:1});
+  const startT=performance.now(); let last=startT;
+  function frame(t){
+    const dt=Math.min(42,t-last); last=t; ctx.clearRect(0,0,innerWidth,innerHeight); let alive=0;
+    P.forEach(p=>{ p.vy+=0.05*(dt/16); p.x+=p.vx*(dt/16); p.y+=p.vy*(dt/16); p.rot+=p.vr*(dt/16); if(p.y>innerHeight-40) p.life-=0.02*(dt/16);
+      if(p.life>0){ alive++; ctx.save(); ctx.globalAlpha=Math.max(0,p.life); ctx.translate(p.x,p.y); ctx.rotate(p.rot); ctx.fillStyle=p.col;
+        if(p.sq) ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r*0.62); else { ctx.beginPath(); ctx.arc(0,0,p.r/2,0,7); ctx.fill(); }
+        ctx.restore(); } });
+    if(alive>0 && t-startT<5000) requestAnimationFrame(frame); else cv.remove();
+  }
+  requestAnimationFrame(frame);
+}
+function countUp(el,to,dur){
+  if(!el) return; if(reducedMotion()){ el.textContent=to; return; }
+  const t0=performance.now();
+  (function step(t){ const k=Math.min(1,(t-t0)/dur); el.textContent=Math.round(to*(1-Math.pow(1-k,3))); if(k<1) requestAnimationFrame(step); })(performance.now());
+}
+
 // ---- render + events ----
 function render(){
   const v=computeVals();
@@ -831,7 +861,11 @@ function render(){
   }
   const app=document.getElementById('app');
   app.innerHTML=html;
-  if(state.screen!==state._prevScreen){ window.scrollTo(0,0); state._prevScreen=state.screen; }
+  const changed = state.screen!==state._prevScreen;
+  if(changed){ window.scrollTo(0,0); state._prevScreen=state.screen; }
+  if(changed && state.screen==='cert') launchConfetti(70 + v.cleanCount*9);
+  if(changed){ const ln=document.getElementById('leakNum'); if(ln) countUp(ln, Number(ln.dataset.to), 1100);
+               const cs=document.getElementById('certScore'); if(cs) countUp(cs, Number(cs.dataset.to), 900); }
 
   app.querySelectorAll('[data-rot]').forEach(el=>{
     const rot=el.getAttribute('data-rot');
