@@ -8,7 +8,9 @@ Ten decisions, two weeks, one nervous new hire.
 | Edition | For | Live |
 |---------|-----|------|
 | 🏢 **Workplace** | new hires & staff at any org rolling out AI | https://before-you-click-send.vercel.app |
-| 🎓 **AP Classroom** (*Before You Hit Post*) | high-school / AP teachers | https://before-you-click-send.vercel.app/teachers |
+| 🎓 **AP Classroom** (*Before You Hit Send*) | high-school / AP teachers | https://before-you-click-send.vercel.app/teachers |
+
+**Each run closes its own loop:** every consequence reveals *what good would have looked like* (the safe move + the habit it teaches + the source at the moment of the claim); the review wheel is **clickable** for a per-decision debrief; the certificate is **performance-tiered** (✓/✗ per habit + "your 3 to work on"); you get a **shareable report-card PNG**, a **clean-run score with a localStorage best + replay**, and a printable **facilitator pack** (answer key + discussion prompts) for running it in a 45-minute PD/onboarding session.
 
 Each edition is a single, self-contained HTML file — no server, no dependencies, no tracking, nothing leaves the browser. Open it and it runs.
 

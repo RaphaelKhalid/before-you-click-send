@@ -74,6 +74,28 @@ const DATASET = {
   aboutLink: "Why this exists · sources · how to deploy it",
   confLabel: "the AI's confidence it understands your company",
   wk2Label: "week two",
+  wk1Label: "week one",
+  doneLabel: "Fortnight complete · reviewing",
+  meterLegend: ["less exposed", "more exposed"],
+  cardSubject: "the company’s secrets",
+  cardLeak: "of company knowledge leaked",
+  // per-day -> which habit it teaches (HABITS index) and which source backs it (SOURCES index)
+  dayLesson: [
+    {h:0,s:0},{h:1,s:0},{h:2,s:2},{h:3,s:1},{h:4,s:3},{h:5,s:4},{h:5,s:5},{h:6,s:6},{h:7,s:7},{h:7,s:8}
+  ],
+  // facilitator discussion prompts, one per day
+  discuss: [
+    "When is it OK to paste real customer details into an AI tool — and who do you ask when you're unsure?",
+    "What counts as 'anonymised enough' before data goes into a tool, and whose job is it to check?",
+    "Which of our automations email people before a human sees the output? How would we test one safely?",
+    "What's our rule for using an AI-provided fact or figure in a real document?",
+    "Which of our AI tools can take actions (send / delete / post) versus only suggest?",
+    "For any agent we deploy, which of private-data / web / send do we withhold — and who decides?",
+    "What review must happen before an AI agent runs changes against anything that matters?",
+    "What's our verification step for an urgent request involving money or data, even from a known face?",
+    "Where are we already approving AI decisions without reading them? What spot-check would catch bias?",
+    "Before we scale autonomous agents, what hard limits and kill-switch must exist, and who owns them?"
+  ],
   reviewTitle: "The Fortnight in Review",
   seeReviewLabel: "See the fortnight",
   habitsHeading: "Habits that keep everyone employed",
@@ -232,11 +254,12 @@ function shuffle(a){ a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(
 const start = () => { state.screen='day'; state.day=0; state.choices=Array(10).fill(null); state.confidence=0.06; state.lastFilled=Math.round(0.06*22); state.orders=DAYS.map(()=>shuffle([0,1,2])); render(); };
 function choose(dayIdx, optIdx){
   const opt=DAYS[dayIdx].opts[optIdx];
-  state.choices[dayIdx]={ safe:opt.safe, short:opt.short, cap:opt.cap, note:opt.note };
+  state.choices[dayIdx]={ safe:opt.safe, short:opt.short, cap:opt.cap, note:opt.note, pick:optIdx, bump:opt.bump };
   state.lastFilled=Math.round(state.confidence*22);
   state.confidence=Math.min(1, state.confidence + opt.bump);
   const target=opt.emailTarget||1;
   state.emailTarget=target;
+  state.citeOpen=false;
   state.screen='consequence';
   render();
   if(dayIdx===2) startEmails(target);
@@ -251,8 +274,13 @@ function startEmails(target){
     render();
   },24);
 }
-const continueDay = () => { const d=state.day; if(d>=9){ state.screen='friday'; } else { state.screen='day'; state.day=d+1; } render(); };
-const gotoEnd = () => { const u=state.choices.filter(c=>c&&!c.safe).length; state.screen = u>=3 ? 'incident' : 'cert'; render(); };
+const continueDay = () => { const d=state.day; if(d>=9){ state.reviewOpen=worstDay(); state.screen='friday'; } else { state.screen='day'; state.day=d+1; } render(); };
+const gotoEnd = () => { saveBest(); const u=state.choices.filter(c=>c&&!c.safe).length; state.screen = u>=3 ? 'incident' : 'cert'; render(); };
+
+function worstDay(){ let w=0,b=-1; state.choices.forEach((c,i)=>{ if(c&&!c.safe&&c.bump>b){b=c.bump;w=i;} }); return b<0?0:w; }
+const BEST_KEY = 'byc_best_'+DATASET.slug;
+function readBest(){ try{ const v=parseInt(localStorage.getItem(BEST_KEY),10); return isNaN(v)?null:v; }catch(e){ return null; } }
+function saveBest(){ try{ const clean=state.choices.filter(c=>c&&c.safe).length; const prev=readBest(); if(prev===null||clean>prev){ localStorage.setItem(BEST_KEY, String(clean)); state.newBest=(prev!==null&&clean>prev); } else state.newBest=false; }catch(e){} }
 const restart = () => { clearInterval(emailTimer); state.screen='landing'; state.day=0; state.choices=Array(10).fill(null); state.confidence=0.06; state.emailCount=0; render(); };
 
 // ---- computed values ----
@@ -268,7 +296,7 @@ function computeVals(){
   const dots=Array.from({length:10},(_,i)=>({ fill:i<activeIdx?'#1a1a1a':(i===activeIdx?'#c0392b':'#fff'), active:i===activeIdx }));
 
   const filled=Math.round(s.confidence*22);
-  const confBlocks=Array.from({length:22},(_,i)=>({fill:i<filled?'#1a1a1a':'#fff', fresh:(i>=s.lastFilled&&i<filled)}));
+  const confBlocks=Array.from({length:22},(_,i)=>({fill:i<filled?'#c0392b':'#fff', fresh:(i>=s.lastFilled&&i<filled)}));
 
   const order=s.orders[d]||[0,1,2];
   const dayOptions=order.map((origIdx,i)=>{ const o=dd.opts[origIdx]; return { text:o.text, letter:String.fromCharCode(65+i), radius:RADII[i%3], rot:ROT[i%3], origIdx, day:d, i }; });
@@ -286,6 +314,11 @@ function computeVals(){
   });
 
   const unsafeCount=s.choices.filter(c=>c&&!c.safe).length;
+  const cleanCount=s.choices.filter(c=>c&&c.safe).length;
+  const habitBroke={}, habitSeen={};
+  s.choices.forEach((c,i)=>{ if(!c) return; const h=DATASET.dayLesson[i].h; habitSeen[h]=true; if(!c.safe) habitBroke[h]=Math.max(habitBroke[h]||0, c.bump||0); });
+  const habitStatus=HABITS.map((t,h)=>({text:t, kept: habitSeen[h] ? !habitBroke[h] : true, seen:!!habitSeen[h]}));
+  const toWorkOn=Object.keys(habitBroke).map(h=>({h:+h, sev:habitBroke[h]})).sort((a,b)=>b.sev-a.sev).slice(0,3).map(x=>HABITS[x.h]);
   const items=[]; let di=0;
   s.choices.forEach((ch,i)=>{ if(ch&&!ch.safe && di<6){ items.push({text:DAYS[i].incident, delay:(0.25+di*0.45).toFixed(2)}); di++; } });
   if(unsafeCount>6) items.push({text:"…and "+(unsafeCount-6)+" more, still landing.", delay:(0.25+di*0.45).toFixed(2)});
@@ -300,7 +333,7 @@ function computeVals(){
   return {
     showChrome:['day','consequence','friday'].includes(s.screen),
     bad, good, badCol,
-    dayChapter:(meta.chapter||'')+' · '+(meta.day||'')+(meta.wk===2?' · '+DATASET.wk2Label:''),
+    dayChapter:(meta.chapter||'')+' · '+(meta.day||'')+' · '+(meta.wk===2?DATASET.wk2Label:DATASET.wk1Label),
     dayTitle:meta.title||'', daySetupCaption:dd.setup||'', daySetupTask:dd.task||'',
     dayCounter:'Decision '+(d+1)+' of 10',
     consLabel:(meta.day||'')+' '+(meta.title||'')+(bad?' · that went poorly':' · no incident'),
@@ -309,6 +342,7 @@ function computeVals(){
     dayOptions, outRows, envelopes, emailCount:s.emailCount, d,
     dots, confBlocks, spokes,
     endLabel:unsafeCount>=3?'Face the consequences':'Get your certificate',
+    unsafeCount, cleanCount, habitStatus, toWorkOn, best:readBest(), newBest:!!s.newBest,
     incidentItems:items, incidentClose, leakPct:Math.round(s.confidence*100),
     stampCol, stampTop, stampMid, stampBot, certSub,
     today:new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}),
@@ -394,15 +428,18 @@ const SCENES = {
 function chrome(v){
   const dots = v.dots.map(dot=>`<div style="width:13px;height:13px;border:2px solid #1a1a1a;border-radius:255px 15px 225px 15px/15px 225px 15px 255px;background:${dot.fill}${dot.active?';animation:dotPulse .5s ease':''}"></div>`).join('');
   const blocks = v.confBlocks.map(b=>`<div class="${b.fresh?'confpop':''}" style="width:8px;height:13px;border:1px solid #1a1a1a;background:${b.fill}"></div>`).join('');
+  const onDay=(state.screen==='day'||state.screen==='consequence');
+  const counterLabel = onDay ? v.dayCounter : DATASET.doneLabel;
   return `<div data-noprint style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px">
       <div>
-        <div style="font-size:10.5px;color:#555;margin-bottom:5px">${esc(v.dayCounter)}</div>
+        <div style="font-size:10.5px;color:#555;margin-bottom:5px">${esc(counterLabel)}</div>
         <div style="display:flex;gap:5px">${dots}</div>
       </div>
       <div style="text-align:right;max-width:270px">
         <div style="font-size:10.5px;line-height:1.3;color:#555;margin-bottom:4px">${esc(DATASET.confLabel)}</div>
         <div style="display:flex;gap:2px;justify-content:flex-end">${blocks}</div>
+        <div style="font-size:8.5px;color:#c0392b;margin-top:3px;letter-spacing:.5px">${esc(DATASET.meterLegend[0])} &rarr; ${esc(DATASET.meterLegend[1])}</div>
       </div>
     </div>
     <div style="position:relative;height:38px;overflow:hidden;border-bottom:2px dashed #cfcdc4">
@@ -446,7 +483,9 @@ function landing(){
     <div data-act="start" class="blob" style="display:inline-block;font-family:'Patrick Hand',cursive;font-size:26px;padding:12px 44px;border:3px solid #1a1a1a;border-radius:${BLOB_RADIUS}">Start &rarr;</div>
     <p style="font-size:11px;color:#999;margin-top:22px">${esc(DATASET.metaLine)}</p>
     <div data-act="about" class="lnk" style="display:inline-block;margin-top:10px;font-size:12px;color:#555">${esc(DATASET.aboutLink)}</div>
-    <div style="margin-top:26px"><a href="${DATASET.otherEdition.href}" style="font-size:11px;color:#999;text-decoration:underline;text-underline-offset:3px">${esc(DATASET.otherEdition.label)}</a></div>
+    <div><div data-act="facilitator" class="lnk" style="display:inline-block;margin-top:9px;font-size:12px;color:#555">Running this with a group? Get the facilitator pack &rarr;</div></div>
+    <div style="margin-top:24px;font-size:11px;color:#aaa">Built from a 10-scenario template &mdash; reskin it for your org in one file.</div>
+    <div style="margin-top:6px"><a href="${DATASET.otherEdition.href}" style="font-size:11px;color:#999;text-decoration:underline;text-underline-offset:3px">${esc(DATASET.otherEdition.label)}</a></div>
   </div>`;
 }
 
@@ -540,27 +579,58 @@ function consequence(v){
     const pose = v.bad ? BAD_POSES[d%BAD_POSES.length] : GOOD_POSES[d%GOOD_POSES.length];
     vis=`<div style="display:flex;justify-content:center;margin-bottom:18px">${frame(person(pose))}</div>`;
   }
+  const dl=DATASET.dayLesson[d];
+  const safeOpt=DAYS[d].opts.find(o=>o.safe)||DAYS[d].opts[0];
+  const habit=HABITS[dl.h], src=SOURCES[dl.s];
+  const teachHead = v.bad ? 'What good would have looked like' : 'Why that worked';
+  const teach=`<div style="border:2.5px solid ${GREEN};border-left-width:7px;border-radius:6px 220px 8px 220px/220px 8px 220px 8px;background:#fbfdfb;padding:13px 18px;margin-bottom:22px;animation:fadeUp .4s ease .25s both">
+      <div style="font-family:'Patrick Hand',cursive;font-size:16px;color:${GREEN};margin-bottom:4px">${teachHead}</div>
+      <div style="font-size:13.5px;line-height:1.5;margin-bottom:9px">${v.bad?'The move was: ':''}<b>${esc(safeOpt.text)}</b></div>
+      <div style="display:inline-flex;align-items:center;gap:6px;font-size:12px;background:#eef5ee;border:1.5px solid ${GREEN};border-radius:14px 4px 14px 4px;padding:3px 11px;color:#1a1a1a"><span style="color:${GREEN}">&#9745;</span>${esc(habit)}</div>
+      <div data-act="cite" style="cursor:pointer;font-size:11px;color:#777;margin-top:9px;text-decoration:underline;text-underline-offset:3px">${state.citeOpen?'&#9662;':'&#9656;'} the evidence</div>
+      ${state.citeOpen?`<div style="font-size:11.5px;line-height:1.5;color:#555;border-top:1px solid #e2e0d7;margin-top:7px;padding-top:7px"><b>${esc(src.topic)}</b> &mdash; ${esc(src.text)} <span style="color:#888">(${esc(src.cite)})</span></div>`:''}
+    </div>`;
   return `<div style="animation:fadeUp .4s ease both">
     <div style="font-family:'Patrick Hand',cursive;font-size:15px;letter-spacing:1px;text-transform:uppercase;color:${v.badCol}">${esc(v.consLabel)}</div>
     <h2 style="font-family:'Patrick Hand',cursive;font-size:clamp(26px,6vw,34px);margin:2px 0 18px;font-weight:400">${esc(v.consTitle)} &mdash; continued</h2>
     ${vis}
     <div style="border:2.5px solid ${v.badCol};border-radius:14px 245px 20px 245px/245px 18px 245px 20px;padding:16px 20px;background:#fff;font-size:15px;line-height:1.6;margin-bottom:12px">${esc(v.consCaption)}</div>
-    <div style="text-align:center;font-family:'Patrick Hand',cursive;font-size:24px;margin-bottom:26px;color:${v.badCol}">${esc(v.consNote)}</div>
+    <div style="text-align:center;font-family:'Patrick Hand',cursive;font-size:24px;margin-bottom:20px;color:${v.badCol}">${esc(v.consNote)}</div>
+    ${teach}
     <div style="text-align:center">
       <div data-act="continue" class="blob" style="display:inline-block;font-family:'Patrick Hand',cursive;font-size:22px;padding:10px 34px;border:3px solid #1a1a1a;border-radius:${BLOB_RADIUS}">${esc(v.continueLabel)} &rarr;</div>
     </div>
   </div>`;
 }
 
+function reviewPanel(d){
+  const c=state.choices[d], meta=DAY_META[d], dl=DATASET.dayLesson[d];
+  const safeOpt=DAYS[d].opts.find(o=>o.safe)||DAYS[d].opts[0];
+  const col=c?(c.safe?GREEN:RED):GREY, src=SOURCES[dl.s], habit=HABITS[dl.h];
+  const verdict=c?(c.safe?`<span style="color:${GREEN}">&#10003; solid</span>`:`<span style="color:${RED}">&#10007; risky</span>`):'';
+  return `<div style="border:2.5px solid #1a1a1a;border-left:7px solid ${col};border-radius:8px 220px 10px 220px/220px 10px 220px 10px;background:#fff;padding:14px 18px;margin:4px 0 18px;animation:fadeUp .3s ease both">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">
+      <div style="font-family:'Patrick Hand',cursive;font-size:20px">${d+1}. ${esc(meta.title)}</div>
+      <div style="font-size:11px;color:#777">${esc(meta.chapter)} &middot; ${esc(meta.day)}</div>
+    </div>
+    <div style="font-size:13.5px;margin:8px 0 4px">You chose: <b style="color:${col}">${c?esc(c.short):'&mdash;'}</b> ${verdict}</div>
+    ${c&&!c.safe?`<div style="font-size:13.5px;margin:4px 0"><span style="color:${GREEN}">The safe move:</span> ${esc(safeOpt.text)}</div>`:''}
+    <div style="display:inline-flex;align-items:center;gap:6px;font-size:12px;background:#f4f3ee;border:1.5px solid #1a1a1a;border-radius:14px 4px 14px 4px;padding:3px 11px;margin-top:6px"><span style="color:${GREEN}">&#9745;</span>${esc(habit)}</div>
+    <div style="font-size:11px;color:#777;margin-top:8px"><b>${esc(src.topic)}</b> &mdash; <span style="color:#999">${esc(src.cite)}</span></div>
+  </div>`;
+}
+
 function friday(v){
   const safeN=v.spokes.filter(s=>s.color===GREEN).length;
   const badN=v.spokes.filter(s=>s.color===RED).length;
+  const best=v.best;
   const spokeLines=v.spokes.map(sp=>`<line x1="0" y1="0" x2="${sp.nx}" y2="${sp.ny}" stroke="${sp.color}" stroke-width="3.4" stroke-dasharray="260" style="animation:drawSpoke .6s ease both;animation-delay:${sp.delay}s"/>`).join('');
-  const spokeNodes=v.spokes.map(sp=>`<g style="animation:popIn .35s ease both;animation-delay:${sp.ndelay}s">
-      <circle cx="${sp.x}" cy="${sp.y}" r="21" fill="${sp.color}" opacity="0.10"/>
-      <circle cx="${sp.x}" cy="${sp.y}" r="16.5" fill="#fff" stroke="${sp.color}" stroke-width="3.2"/>
+  const sel=(state.reviewOpen==null?0:state.reviewOpen);
+  const spokeNodes=v.spokes.map(sp=>{ const isSel=(sp.n-1===sel); return `<g data-review="${sp.n-1}" style="cursor:pointer;animation:popIn .35s ease both;animation-delay:${sp.ndelay}s">
+      <circle cx="${sp.x}" cy="${sp.y}" r="${isSel?24:21}" fill="${sp.color}" opacity="${isSel?0.2:0.1}"/>
+      <circle cx="${sp.x}" cy="${sp.y}" r="16.5" fill="#fff" stroke="${sp.color}" stroke-width="${isSel?4.5:3.2}"/>
       <text x="${sp.x}" y="${sp.ty}" text-anchor="middle" font-family="Patrick Hand,cursive" font-size="16" stroke="none" fill="${sp.color}">${sp.n}</text>
-    </g>`).join('');
+    </g>`; }).join('');
   const legend=v.spokes.map(sp=>`<div style="display:flex;gap:9px;align-items:baseline;font-size:12.5px;line-height:1.35">
       <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:2px solid ${sp.color};color:${sp.color};font-size:10px;font-weight:700;flex:none">${sp.n}</span>
       <span style="color:#666;min-width:34px">${esc(sp.day)}</span>
@@ -575,6 +645,7 @@ function friday(v){
       <span style="color:${GREEN}">&#9679; ${safeN} handled well</span>
       <span style="color:${RED}">&#9679; ${badN} went poorly</span>
     </div>
+    <div style="text-align:center;font-size:12px;color:#555;margin-bottom:6px">Clean run: <b>${safeN}/10</b>${best!=null?` &middot; your best: <b>${best}/10</b>`:''}</div>
     <div style="display:flex;justify-content:center">
       <svg viewBox="-172 -172 344 344" width="100%" style="max-width:420px" fill="none" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="0" cy="0" r="140" fill="none" stroke="#e0ded4" stroke-width="1.4" stroke-dasharray="2 8"/>
@@ -591,6 +662,8 @@ function friday(v){
         ${spokeNodes}
       </svg>
     </div>
+    <div style="text-align:center;font-size:11px;color:#999;margin:2px 0 8px">tap a number to revisit that decision</div>
+    ${reviewPanel(sel)}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:5px 18px;margin:6px 0 20px">${legend}</div>
     <div style="border:2.5px solid #1a1a1a;border-radius:12px;padding:16px 20px;background:#fff;margin:8px 0 22px">
       <div style="font-family:'Patrick Hand',cursive;font-size:22px;margin-bottom:10px">${esc(DATASET.habitsHeading)}</div>
@@ -616,7 +689,9 @@ function incident(v){
 }
 
 function cert(v){
-  const habits=HABITS.map(h=>`<div style="padding:3px 0;font-size:12px;line-height:1.4">&#9745; ${esc(h)}</div>`).join('');
+  const habits=v.habitStatus.map(h=>`<div style="padding:3px 0;font-size:12px;line-height:1.4;color:${h.kept?'#1a1a1a':RED}"><span style="color:${h.kept?GREEN:RED}">${h.kept?'&#9745;':'&#9746;'}</span> ${esc(h.text)}</div>`).join('');
+  const work = v.toWorkOn.length ? `<div style="margin-top:14px;border:2px dashed ${RED};border-radius:6px;padding:8px 12px;font-size:12px;line-height:1.5"><b style="color:${RED}">Your ${v.toWorkOn.length} to work on:</b> ${v.toWorkOn.map(esc).join(' &middot; ')}</div>` : `<div style="margin-top:14px;border:2px dashed ${GREEN};border-radius:6px;padding:8px 12px;font-size:12px;color:${GREEN}"><b>Clean sweep.</b> You broke none of the habits. Genuinely rare.</div>`;
+  const newBest = v.newBest ? `<span style="display:inline-block;font-family:'Patrick Hand',cursive;color:${GREEN};border:2px solid ${GREEN};border-radius:12px 4px 12px 4px;padding:1px 9px;margin-left:8px;transform:rotate(-4deg);animation:stampIn .5s ease .6s both">new best!</span>` : '';
   return `<div style="animation:fadeUp .4s ease both">
     <div style="border:3px double #1a1a1a;background:#fff;padding:34px 30px;position:relative;border-radius:6px">
       <div style="text-align:center">
@@ -625,11 +700,13 @@ function cert(v){
         <div style="font-size:12px;color:#555;margin-bottom:24px">${esc(v.certSub)}</div>
         <input id="nameInput" value="${esc(v.name)}" placeholder="your name here" data-noprint style="font-family:'Patrick Hand',cursive;font-size:30px;text-align:center;border:none;border-bottom:2.5px solid #1a1a1a;background:transparent;padding:2px 8px;width:min(320px,80%);outline:none"/>
         <div id="printName" class="printonly" style="font-family:'Patrick Hand',cursive;font-size:30px;text-align:center;border-bottom:2.5px solid #1a1a1a;padding:2px 8px;width:min(320px,80%);margin:0 auto;min-height:40px">${esc(v.name)||'&nbsp;'}</div>
-        <div style="font-size:13px;color:#333;margin:22px auto 0;max-width:430px;text-align:left">
-          <div style="font-family:'Patrick Hand',cursive;font-size:18px;margin-bottom:6px;text-align:center">&mdash; has demonstrated the habits &mdash;</div>
+        <div style="font-size:13px;margin:8px auto 0;color:#555">kept <b style="color:${GREEN}">${v.cleanCount}</b> of 10 decisions clean${v.best!=null?` &middot; best: <b>${v.best}/10</b>`:''}${newBest}</div>
+        <div style="font-size:13px;color:#333;margin:20px auto 0;max-width:440px;text-align:left">
+          <div style="font-family:'Patrick Hand',cursive;font-size:18px;margin-bottom:6px;text-align:center">&mdash; the eight habits, and how you did &mdash;</div>
           ${habits}
+          ${work}
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:30px;gap:20px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:28px;gap:20px">
           <div style="text-align:left;font-size:12px"><div style="border-bottom:1.5px solid #1a1a1a;width:150px;margin-bottom:4px;font-family:'Patrick Hand',cursive;font-size:16px;padding-bottom:2px">${esc(DATASET.sponsorName)}</div>${esc(DATASET.sponsorRole)}</div>
           <div style="text-align:right;font-size:12px"><div style="border-bottom:1.5px solid #1a1a1a;width:130px;margin-bottom:4px;padding-bottom:2px">${esc(v.today)}</div>date</div>
         </div>
@@ -639,11 +716,83 @@ function cert(v){
       </div>
     </div>
     <div data-noprint style="display:flex;gap:12px;justify-content:center;margin-top:24px;flex-wrap:wrap">
-      <div data-act="print" class="blob" style="font-family:'Patrick Hand',cursive;font-size:20px;padding:9px 28px;border:3px solid #1a1a1a;border-radius:${BLOB_RADIUS}">Print it &#128424;</div>
-      <div data-act="restart" class="blob2" style="font-family:'Courier Prime',monospace;font-size:14px;padding:11px 24px;border:2px solid #1a1a1a;border-radius:15px 255px 15px 225px/225px 15px 255px 15px;background:transparent">Start over</div>
-      <div data-act="about" class="blob2" style="font-family:'Courier Prime',monospace;font-size:14px;padding:11px 24px;border:2px solid #1a1a1a;border-radius:${BLOB_RADIUS};background:transparent">Sources &amp; why</div>
+      <div data-act="card" class="blob" style="font-family:'Patrick Hand',cursive;font-size:20px;padding:9px 28px;border:3px solid #1a1a1a;border-radius:${BLOB_RADIUS}">Save report card &#128247;</div>
+      <div data-act="print" class="blob" style="font-family:'Patrick Hand',cursive;font-size:20px;padding:9px 28px;border:3px solid #1a1a1a;border-radius:15px 255px 15px 225px/225px 15px 255px 15px">Print it &#128424;</div>
+      <div data-act="replay" class="blob2" style="font-family:'Courier Prime',monospace;font-size:14px;padding:11px 24px;border:2px solid #1a1a1a;border-radius:${BLOB_RADIUS};background:transparent">Try to beat it &#8635;</div>
+      <div data-act="about" class="blob2" style="font-family:'Courier Prime',monospace;font-size:14px;padding:11px 24px;border:2px solid #1a1a1a;border-radius:15px 255px 15px 225px/225px 15px 255px 15px;background:transparent">Sources &amp; why</div>
     </div>
   </div>`;
+}
+
+function facilitator(){
+  const rows=DAYS.map((dd,i)=>{
+    const meta=DAY_META[i], dl=DATASET.dayLesson[i];
+    const opts=dd.opts.map(o=>`<div style="font-size:12.5px;line-height:1.45;margin:2px 0;color:${o.safe?GREEN:'#333'}">${o.safe?'&#9745; <b>':'&#9744; '}${esc(o.text)}${o.safe?'</b>':''}</div>`).join('');
+    const safe=dd.opts.find(o=>o.safe)||dd.opts[0];
+    return `<div style="border:2px solid #1a1a1a;border-radius:8px;padding:12px 16px;margin-bottom:12px;background:#fff;break-inside:avoid;page-break-inside:avoid">
+      <div style="font-family:'Patrick Hand',cursive;font-size:20px">${i+1}. ${esc(meta.title)} <span style="font-size:12px;color:#777">(${esc(meta.chapter)} &middot; ${esc(meta.day)})</span></div>
+      <div style="font-size:12.5px;line-height:1.5;margin:6px 0;color:#333">${esc(dd.setup)}</div>
+      <div style="font-family:'Patrick Hand',cursive;font-size:15px;margin:6px 0 2px">${esc(dd.task)}</div>
+      ${opts}
+      <div style="font-size:12px;margin-top:6px;color:${GREEN}"><b>Do this instead:</b> ${esc(safe.note)}</div>
+      <div style="font-size:12px;margin-top:4px"><b>Habit:</b> &#9745; ${esc(HABITS[dl.h])}</div>
+      <div style="font-size:11px;color:#777;margin-top:2px"><b>Source:</b> ${esc(SOURCES[dl.s].cite)}</div>
+      <div style="font-size:12.5px;margin-top:6px;border-left:3px solid #1a1a1a;padding-left:10px"><b>Discuss:</b> ${esc(DATASET.discuss[i])}</div>
+    </div>`;
+  }).join('');
+  const habits=HABITS.map(h=>`<li style="margin:3px 0">${esc(h)}</li>`).join('');
+  return `<div style="animation:fadeUp .4s ease both">
+    <div data-noprint style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
+      <div data-act="landing" class="lnk" style="font-size:13px;color:#555">&larr; back</div>
+      <div data-act="print" class="blob" style="font-family:'Patrick Hand',cursive;font-size:18px;padding:8px 22px;border:3px solid #1a1a1a;border-radius:${BLOB_RADIUS}">Print the pack &#128424;</div>
+    </div>
+    <h2 style="font-family:'Patrick Hand',cursive;font-size:32px;margin:0 0 2px;font-weight:400">Facilitator pack</h2>
+    <p style="font-size:13px;color:#555;line-height:1.5;margin:0 0 16px">${esc(DATASET.brandName)} &middot; run it in ~45 minutes: play a scenario together, vote on the choice, reveal the consequence, then use the discussion prompt. The answer key + sources are below &mdash; the safe option is ticked.</p>
+    ${rows}
+    <div style="border:2.5px solid #1a1a1a;border-radius:12px;padding:14px 18px;background:#fff;break-inside:avoid;page-break-inside:avoid">
+      <div style="font-family:'Patrick Hand',cursive;font-size:20px;margin-bottom:6px">${esc(DATASET.habitsHeading)}</div>
+      <ol style="margin:0;padding-left:20px;font-size:13px;line-height:1.5">${habits}</ol>
+    </div>
+  </div>`;
+}
+
+// ---- shareable report card (canvas -> PNG) ----
+function drawWheel(ctx,spokes,cx,cy,sc){
+  spokes.forEach(sp=>{ ctx.strokeStyle=sp.color; ctx.lineWidth=4; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+sp.nx*sc, cy+sp.ny*sc); ctx.stroke(); });
+  ctx.fillStyle='#fff'; ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(cx,cy,26*sc,0,7); ctx.fill(); ctx.stroke();
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  spokes.forEach(sp=>{ const x=cx+sp.x*sc, y=cy+sp.y*sc; ctx.fillStyle='#fff'; ctx.strokeStyle=sp.color; ctx.lineWidth=3.5; ctx.beginPath(); ctx.arc(x,y,16*sc,0,7); ctx.fill(); ctx.stroke(); ctx.fillStyle=sp.color; ctx.font='700 '+Math.round(17*sc)+'px "Patrick Hand", cursive'; ctx.fillText(String(sp.n), x, y+1); });
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+}
+function paintCard(v){
+  const W=1200,H=630;
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#f4f3ee'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#e6e4da'; for(let x=26;x<W;x+=28)for(let y=26;y<H;y+=28){ ctx.beginPath(); ctx.arc(x,y,1.3,0,7); ctx.fill(); }
+  ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=4; ctx.strokeRect(18,18,W-36,H-36);
+  ctx.fillStyle='#777'; ctx.font='16px "Courier Prime", monospace'; ctx.fillText(DATASET.kicker.toUpperCase(), 56, 70);
+  ctx.fillStyle='#1a1a1a'; ctx.font='56px "Patrick Hand", cursive'; ctx.fillText(DATASET.brandName, 52, 128);
+  ctx.font='118px "Patrick Hand", cursive'; ctx.fillStyle='#1a1a1a'; ctx.fillText(v.cleanCount+'/10', 56, 300);
+  ctx.font='22px "Courier Prime", monospace'; ctx.fillStyle='#555'; ctx.fillText('decisions kept clean', 60, 336);
+  ctx.font='64px "Patrick Hand", cursive'; ctx.fillStyle='#c0392b'; ctx.fillText(v.leakPct+'%', 56, 430);
+  ctx.font='20px "Courier Prime", monospace'; ctx.fillStyle='#555'; ctx.fillText(DATASET.cardLeak, 60, 462);
+  drawWheel(ctx, v.spokes, 930, 300, 0.92);
+  const hook = v.cleanCount>=9 ? 'Nearly flawless — think you can match it? →'
+                               : 'I let '+v.leakPct+'% of '+DATASET.cardSubject+' walk out. Beat me →';
+  ctx.font='30px "Patrick Hand", cursive'; ctx.fillStyle='#1a1a1a'; ctx.fillText(hook, 56, 548);
+  ctx.font='18px "Courier Prime", monospace'; ctx.fillStyle='#777';
+  let url=''; try{ url=location.origin+(location.pathname||'/'); }catch(e){ url=''; }
+  if(url) ctx.fillText(url.replace(/^https?:\/\//,''), 56, 586);
+  return cv;
+}
+function downloadReportCard(){
+  const go=()=>{
+    const v=computeVals();
+    const cv=paintCard(v);
+    cv.toBlob(b=>{ if(!b) return; const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=DATASET.slug+'-report-card.png'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),1500); }, 'image/png');
+  };
+  if(document.fonts&&document.fonts.ready){ document.fonts.ready.then(go).catch(go); } else go();
 }
 
 // ---- render + events ----
@@ -659,10 +808,11 @@ function render(){
     case 'friday': html+=friday(v); break;
     case 'incident': html+=incident(v); break;
     case 'cert': html+=cert(v); break;
+    case 'facilitator': html+=facilitator(); break;
   }
   const app=document.getElementById('app');
   app.innerHTML=html;
-  if(state.screen!=='consequence'||state.day!==2) window.scrollTo(0,0);
+  if(state.screen!==state._prevScreen){ window.scrollTo(0,0); state._prevScreen=state.screen; }
 
   app.querySelectorAll('[data-rot]').forEach(el=>{
     const rot=el.getAttribute('data-rot');
@@ -673,17 +823,24 @@ function render(){
   app.querySelectorAll('[data-choose]').forEach(el=>{
     el.addEventListener('click',()=>{ const [dy,idx]=el.getAttribute('data-choose').split(':').map(Number); choose(dy,idx); });
   });
+  app.querySelectorAll('[data-review]').forEach(el=>{
+    el.addEventListener('click',()=>{ state.reviewOpen=Number(el.getAttribute('data-review')); render(); });
+  });
   app.querySelectorAll('[data-act]').forEach(el=>{
     el.addEventListener('click',()=>{
       switch(el.getAttribute('data-act')){
-        case 'start': start(); break;
+        case 'start': state.facilitator=false; start(); break;
         case 'about': state.screen='about'; render(); break;
         case 'landing': state.screen='landing'; render(); break;
         case 'continue': continueDay(); break;
         case 'end': gotoEnd(); break;
         case 'cert': state.screen='cert'; render(); break;
+        case 'cite': state.citeOpen=!state.citeOpen; render(); break;
         case 'print': window.print(); break;
         case 'restart': restart(); break;
+        case 'replay': start(); break;
+        case 'facilitator': state.screen='facilitator'; render(); break;
+        case 'card': downloadReportCard(); break;
       }
     });
   });

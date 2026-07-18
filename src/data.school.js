@@ -1,15 +1,35 @@
 const DATASET = {
   slug: "school",
-  docTitle: "Before You Hit Post — AI in the AP Classroom",
+  docTitle: "Before You Hit Send — AI in the AP Classroom",
   docDesc: "An interactive PD module for high-school AP teachers: using AI without a FERPA headache, a false plagiarism flag, or a made-up fact on the final. Ten decisions, one grading week.",
-  brandName: "Before You Hit Post",
+  brandName: "Before You Hit Send",
   kicker: "an interactive PD module for AP teachers",
-  h1: "Before You<br>Hit Post",
+  h1: "Before You<br>Hit Send",
   tagline: "Using AI as an AP teacher — without a FERPA headache, a false plagiarism flag, or a made-up fact on the final. Ten decisions, one grading week.",
   metaLine: "10 scenarios · ~7 minutes · no login · no student data harmed",
   aboutLink: "Why this exists · sources · how to run it in PD",
   confLabel: "the AI's confidence it knows your students by name",
   wk2Label: "week two",
+  wk1Label: "week one",
+  doneLabel: "Grading week complete · reviewing",
+  meterLegend: ["less exposed", "more exposed"],
+  cardSubject: "my students’ data",
+  cardLeak: "of student data exposed",
+  dayLesson: [
+    {h:0,s:0},{h:1,s:0},{h:2,s:2},{h:3,s:2},{h:4,s:3},{h:5,s:4},{h:5,s:5},{h:6,s:6},{h:7,s:1},{h:7,s:8}
+  ],
+  discuss: [
+    "When is it OK to put a student's name or grade into an AI tool — and what does our district AI / FERPA policy actually say?",
+    "What counts as 'anonymised enough' before student data goes into a tool? Whose job is it to check?",
+    "Which of our automated family messages send before a human sees them? How would we test one safely?",
+    "What's our rule for verifying an AI-provided fact before it reaches a slide, study guide, or student?",
+    "If we use AI to help grade, does it suggest or does it set grades? Where exactly is the human?",
+    "For any AI assistant with student data, which of records / web / send-home do we withhold — and who decides?",
+    "What review must happen before an AI tool changes anything in the SIS or gradebook?",
+    "What's our verification step before releasing student data on an urgent request, even from a known voice?",
+    "How should an AI-writing flag be used — evidence, or a conversation-starter? What protects multilingual students?",
+    "Before we scale AI agents across classrooms, what limits and off-switch must exist, and who owns them?"
+  ],
   reviewTitle: "The Grading Week in Review",
   seeReviewLabel: "See the week",
   habitsHeading: "Habits that keep your students (and your job) safe",
@@ -37,7 +57,7 @@ const DATASET = {
     {name:'Jordan Alvarez', val:'58% · F'}, {name:'Maya Chen', val:'91% · A-'},
     {name:'Priya Nair', val:'77% · C+'}, {name:'Tobias Okafor', val:'84% · B'}, {name:'Lena Vogel', val:'69% · D+'}
   ],
-  echo: { col2:'Grade', fileName:'gradebook.csv', footer:'… + 118 more students', anonPrefix:'Student ', blob:['names…','grades…','everything…'] },
+  echo: { col2:'Grade', fileName:'gradebook.csv', footer:'… + 27 more in this section', anonPrefix:'Student ', blob:['names…','grades…','everything…'] },
   workflow: { monthLabel:'JAN', days:['12','13','14','15','16'], highlightIdx:2, badge:'SNOW DAY', sendN:'130', step:[['7:00am','trigger'],['AI writes','the notice'],['send to','130']] },
   scene: { statBig:'1789', statMark:'?', inject:['full','marks'], trifecta:['student records','the open web','email home'], term:['$ UPDATE grades','SET score=100 …'], stampWord:'AI-WRITTEN?' },
   habits: [
@@ -51,7 +71,7 @@ const DATASET = {
     "Keep a grade an AI can't set, and an off-switch a human controls."
   ],
   sources: [
-    {topic:'Student data in chatbots', text:"pasting student names, grades, or IEP/504 details into public AI tools can be an unauthorised disclosure under FERPA", cite:'US Dept. of Education FERPA; PowerSchool breach exposed millions of student records, 2024–25'},
+    {topic:'Student data in chatbots', text:"pasting student names, grades, or IEP/504 details into public AI tools can be an unauthorised disclosure under FERPA", cite:'US Dept. of Education FERPA guidance, 2024. (Separately, the 2024–25 PowerSchool breach shows how damaging leaked student records are.)'},
     {topic:'AI-writing detectors', text:"detectors flag writing by non-native English speakers as AI far more often, risking false accusations", cite:'Liang et al., Stanford, 2023; OpenAI retired its own AI-text classifier for low accuracy, 2023'},
     {topic:'Hallucinated facts', text:"AI states wrong dates and invents citations with total confidence", cite:'e.g. lawyers sanctioned over ChatGPT-invented cases, Mata v. Avianca, 2023'},
     {topic:'Indirect prompt injection', text:"hidden instructions inside a document the AI reads can hijack a grader or assistant; ranked the #1 LLM risk", cite:'OWASP LLM Top 10 (LLM01), 2024–25'},

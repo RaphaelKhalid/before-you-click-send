@@ -10,6 +10,28 @@ const DATASET = {
   aboutLink: "Why this exists · sources · how to deploy it",
   confLabel: "the AI's confidence it understands your company",
   wk2Label: "week two",
+  wk1Label: "week one",
+  doneLabel: "Fortnight complete · reviewing",
+  meterLegend: ["less exposed", "more exposed"],
+  cardSubject: "the company’s secrets",
+  cardLeak: "of company knowledge leaked",
+  // per-day -> which habit it teaches (HABITS index) and which source backs it (SOURCES index)
+  dayLesson: [
+    {h:0,s:0},{h:1,s:0},{h:2,s:2},{h:3,s:1},{h:4,s:3},{h:5,s:4},{h:5,s:5},{h:6,s:6},{h:7,s:7},{h:7,s:8}
+  ],
+  // facilitator discussion prompts, one per day
+  discuss: [
+    "When is it OK to paste real customer details into an AI tool — and who do you ask when you're unsure?",
+    "What counts as 'anonymised enough' before data goes into a tool, and whose job is it to check?",
+    "Which of our automations email people before a human sees the output? How would we test one safely?",
+    "What's our rule for using an AI-provided fact or figure in a real document?",
+    "Which of our AI tools can take actions (send / delete / post) versus only suggest?",
+    "For any agent we deploy, which of private-data / web / send do we withhold — and who decides?",
+    "What review must happen before an AI agent runs changes against anything that matters?",
+    "What's our verification step for an urgent request involving money or data, even from a known face?",
+    "Where are we already approving AI decisions without reading them? What spot-check would catch bias?",
+    "Before we scale autonomous agents, what hard limits and kill-switch must exist, and who owns them?"
+  ],
   reviewTitle: "The Fortnight in Review",
   seeReviewLabel: "See the fortnight",
   habitsHeading: "Habits that keep everyone employed",
