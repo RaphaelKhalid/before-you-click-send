@@ -40,7 +40,8 @@
   .lnk{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
   .lnk:hover{color:#1a1a1a}
   .confpop{animation:meterPop .45s ease}
-  @media print{[data-noprint]{display:none!important}html,body{background:#fff;background-image:none}}
+  .printonly{display:none}
+  @media print{[data-noprint]{display:none!important}.printonly{display:block!important}html,body{background:#fff;background-image:none}}
 </style>
 </head>
 <body>
@@ -623,6 +624,7 @@ function cert(v){
         <div style="font-family:'Patrick Hand',cursive;font-size:34px;margin:8px 0 4px">${esc(DATASET.brandName)}</div>
         <div style="font-size:12px;color:#555;margin-bottom:24px">${esc(v.certSub)}</div>
         <input id="nameInput" value="${esc(v.name)}" placeholder="your name here" data-noprint style="font-family:'Patrick Hand',cursive;font-size:30px;text-align:center;border:none;border-bottom:2.5px solid #1a1a1a;background:transparent;padding:2px 8px;width:min(320px,80%);outline:none"/>
+        <div id="printName" class="printonly" style="font-family:'Patrick Hand',cursive;font-size:30px;text-align:center;border-bottom:2.5px solid #1a1a1a;padding:2px 8px;width:min(320px,80%);margin:0 auto;min-height:40px">${esc(v.name)||'&nbsp;'}</div>
         <div style="font-size:13px;color:#333;margin:22px auto 0;max-width:430px;text-align:left">
           <div style="font-family:'Patrick Hand',cursive;font-size:18px;margin-bottom:6px;text-align:center">&mdash; has demonstrated the habits &mdash;</div>
           ${habits}
@@ -686,7 +688,7 @@ function render(){
     });
   });
   const ni=document.getElementById('nameInput');
-  if(ni) ni.addEventListener('input',e=>{ state.name=e.target.value; });
+  if(ni) ni.addEventListener('input',e=>{ state.name=e.target.value; const pn=document.getElementById('printName'); if(pn) pn.textContent=e.target.value; });
 }
 
 render();
