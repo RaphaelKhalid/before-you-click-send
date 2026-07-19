@@ -875,11 +875,10 @@ function mountMute(){
 }
 function mountCursor(){
   try{ if(!matchMedia('(hover:hover) and (pointer:fine)').matches) return; }catch(e){ return; }
-  const pen="<svg xmlns='http://www.w3.org/2000/svg' width='26' height='26'><g fill='none' stroke='#1a1a1a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 20 L17 9 l1 1 l-11 11 z' fill='#fff'/><path d='M17 9 l3 -3 2 2 -3 3 z' fill='#1a1a1a'/></g></svg>";
   const hand="<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='#fff' stroke='#1a1a1a' stroke-width='1.8' stroke-linejoin='round' stroke-linecap='round'><path d='M9 11 V4.5 a2 2 0 0 1 4 0 V10 q0.6 -0.9 1.7 -0.9 t1.7 0.9 q0.6 -0.9 1.7 -0.9 t1.7 0.9 v0.6 q1.5 0.3 1.5 2.3 v3.2 q0 4 -4.2 4 h-4 q-3.4 0 -4 -3.3 l-0.9 -3.6 q-0.4 -1.9 1.4 -2.4 q1.3 -0.3 2 1 z'/></svg>";
   const u=s=>'url("data:image/svg+xml,'+encodeURIComponent(s)+'")';
   const st=document.createElement('style');
-  st.textContent='html{cursor:'+u(pen)+' 5 21,auto}a,input,textarea,.blob,.blob2,.opt,.lnk,[data-act],[data-choose],[data-review],#muteBtn{cursor:'+u(hand)+' 11 2,pointer}';
+  st.textContent='html{cursor:'+u(hand)+' 11 2,auto}a,input,textarea,.blob,.blob2,.opt,.lnk,[data-act],[data-choose],[data-review],#muteBtn{cursor:'+u(hand)+' 11 2,pointer}';
   document.head.appendChild(st);
 }
 
