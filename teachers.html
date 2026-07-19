@@ -249,19 +249,19 @@ const ROT = ['-.5','.5','-.7'];
 const BLOB_RADIUS = '255px 15px 225px 15px/15px 225px 15px 255px';
 
 // ---- state ----
-const state = { screen:'landing', day:0, choices:Array(10).fill(null), confidence:0.06, emailCount:0, emailTarget:340, name:'', orders:[], lastFilled:1 };
+const state = { screen:'landing', day:0, choices:Array(10).fill(null), confidence:0, emailCount:0, emailTarget:340, name:'', orders:[], lastFilled:0 };
 let emailTimer = null;
 
 function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function srcLink(s){ return s&&s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;text-underline-offset:2px">${esc(s.cite)}&nbsp;&#8599;</a>` : esc(s&&s.cite||''); }
 function shuffle(a){ a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 
-const start = () => { state.screen='day'; state.day=0; state.choices=Array(10).fill(null); state.confidence=0.06; state.lastFilled=Math.round(0.06*22); state.orders=DAYS.map(()=>shuffle([0,1,2])); render(); };
+const start = () => { state.screen='day'; state.day=0; state.choices=Array(10).fill(null); state.confidence=0; state.lastFilled=0; state.orders=DAYS.map(()=>shuffle([0,1,2])); render(); };
 function choose(dayIdx, optIdx){
   const opt=DAYS[dayIdx].opts[optIdx];
   state.choices[dayIdx]={ safe:opt.safe, short:opt.short, cap:opt.cap, note:opt.note, pick:optIdx, bump:opt.bump };
   state.lastFilled=Math.round(state.confidence*22);
-  state.confidence=Math.min(1, state.confidence + opt.bump);
+  state.confidence=Math.min(1, state.confidence + (opt.safe?0:opt.bump));
   const target=opt.emailTarget||1;
   state.emailTarget=target;
   state.citeOpen=false;
@@ -286,7 +286,7 @@ function worstDay(){ let w=0,b=-1; state.choices.forEach((c,i)=>{ if(c&&!c.safe&
 const BEST_KEY = 'byc_best_'+DATASET.slug;
 function readBest(){ try{ const v=parseInt(localStorage.getItem(BEST_KEY),10); return isNaN(v)?null:v; }catch(e){ return null; } }
 function saveBest(){ try{ const clean=state.choices.filter(c=>c&&c.safe).length; const prev=readBest(); if(prev===null||clean>prev){ localStorage.setItem(BEST_KEY, String(clean)); state.newBest=(prev!==null&&clean>prev); } else state.newBest=false; }catch(e){} }
-const restart = () => { clearInterval(emailTimer); state.screen='landing'; state.day=0; state.choices=Array(10).fill(null); state.confidence=0.06; state.emailCount=0; render(); };
+const restart = () => { clearInterval(emailTimer); state.screen='landing'; state.day=0; state.choices=Array(10).fill(null); state.confidence=0; state.emailCount=0; render(); };
 
 // ---- computed values ----
 function computeVals(){
@@ -876,9 +876,13 @@ function mountMute(){
 function mountCursor(){
   try{ if(!matchMedia('(hover:hover) and (pointer:fine)').matches) return; }catch(e){ return; }
   const hand="<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='#fff' stroke='#1a1a1a' stroke-width='1.8' stroke-linejoin='round' stroke-linecap='round'><path d='M9 11 V4.5 a2 2 0 0 1 4 0 V10 q0.6 -0.9 1.7 -0.9 t1.7 0.9 q0.6 -0.9 1.7 -0.9 t1.7 0.9 v0.6 q1.5 0.3 1.5 2.3 v3.2 q0 4 -4.2 4 h-4 q-3.4 0 -4 -3.3 l-0.9 -3.6 q-0.4 -1.9 1.4 -2.4 q1.3 -0.3 2 1 z'/></svg>";
+  // pressed/squeezed variant: finger retracted, fist a touch wider
+  const hand2="<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28' fill='#fff' stroke='#1a1a1a' stroke-width='1.9' stroke-linejoin='round' stroke-linecap='round'><path d='M8.6 12 V8 a2 2 0 0 1 4 0 v2 q0.6 -0.7 1.7 -0.7 t1.7 0.7 q0.6 -0.7 1.7 -0.7 t1.7 0.7 v0.5 q1.6 0.3 1.6 2.3 v2.9 q0 4 -4.3 4 h-4 q-3.4 0 -4 -3.3 l-0.9 -3.4 q-0.4 -1.9 1.4 -2.4 q1.3 -0.3 2 1 z'/></svg>";
   const u=s=>'url("data:image/svg+xml,'+encodeURIComponent(s)+'")';
+  const SEL='a,input,textarea,.blob,.blob2,.opt,.lnk,[data-act],[data-choose],[data-review],#muteBtn';
   const st=document.createElement('style');
-  st.textContent='html{cursor:'+u(hand)+' 11 2,auto}a,input,textarea,.blob,.blob2,.opt,.lnk,[data-act],[data-choose],[data-review],#muteBtn{cursor:'+u(hand)+' 11 2,pointer}';
+  st.textContent='html{cursor:'+u(hand)+' 11 2,auto}'+SEL+'{cursor:'+u(hand)+' 11 2,pointer}'
+    +'html:active,'+SEL.split(',').map(s=>s+':active').join(',')+'{cursor:'+u(hand2)+' 11 5,pointer}';
   document.head.appendChild(st);
 }
 
