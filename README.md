@@ -101,6 +101,25 @@ open teachers.html     # AP classroom
 vercel --prod
 ```
 
+## Roll it out as a tracked onboarding task
+
+The course can report completion to a Google Sheet **you** own — so you can see who
+has finished and who has not, like any onboarding task. No server, no data broker: the
+page POSTs `{name, email, score, timestamp}` straight to a Google Apps Script endpoint
+you control.
+
+1. In a new Google Sheet, open **Extensions → Apps Script**, paste the snippet shown on
+   the in-app **"Track completion for your team"** page, and **Deploy → Web app**
+   (execute as *you*, access *Anyone*).
+2. Paste the resulting Web-app URL + your org name into that page to generate a tracked
+   link: `…/?org=Acme&report=<your-url>`.
+3. Share that link. Learners see an optional "Record your completion" step on the
+   certificate; each submission appends a row to your sheet.
+
+Point the same link at any endpoint that accepts a POST (Zapier, Make, an LMS webhook)
+if you'd rather not use Sheets. Navigation is free — learners can move back and forth
+between decisions (and revisit any of them from the green/red tracker) without losing progress.
+
 ## Credits & license
 
 Hand-drawn doodle aesthetic (Patrick Hand + Courier Prime), all artwork authored

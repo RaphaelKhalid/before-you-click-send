@@ -247,6 +247,8 @@ const RED='#c0392b', GREEN='#2f7d32', GREY='#b7b5ac';
 const RADII = ['255px 15px 225px 15px/15px 225px 15px 255px','15px 255px 15px 225px/225px 15px 255px 15px','225px 18px 255px 20px/20px 255px 18px 225px'];
 const ROT = ['-.5','.5','-.7'];
 const BLOB_RADIUS = '255px 15px 225px 15px/15px 225px 15px 255px';
+const QP=(()=>{ try{ return new URLSearchParams(location.search); }catch(e){ return new URLSearchParams(''); } })();
+const ORG=QP.get('org')||''; const REPORT=QP.get('report')||'';
 
 // ---- state ----
 const state = { screen:'landing', day:0, choices:Array(10).fill(null), confidence:0, emailCount:0, emailTarget:340, name:'', orders:[], lastFilled:0 };
@@ -260,8 +262,6 @@ const start = () => { state.screen='day'; state.day=0; state.choices=Array(10).f
 function choose(dayIdx, optIdx){
   const opt=DAYS[dayIdx].opts[optIdx];
   state.choices[dayIdx]={ safe:opt.safe, short:opt.short, cap:opt.cap, note:opt.note, pick:optIdx, bump:opt.bump };
-  state.lastFilled=Math.round(state.confidence*22);
-  state.confidence=Math.min(1, state.confidence + (opt.safe?0:opt.bump));
   const target=opt.emailTarget||1;
   state.emailTarget=target;
   state.citeOpen=false;
@@ -279,7 +279,13 @@ function startEmails(target){
     render();
   },24);
 }
-const continueDay = () => { const d=state.day; if(d>=9){ state.reviewOpen=worstDay(); state.screen='friday'; } else { state.screen='day'; state.day=d+1; } render(); };
+function goDay(d){
+  if(d<0||d>9) return; clearInterval(emailTimer); state.day=d; state.citeOpen=false;
+  state.screen = state.choices[d] ? 'consequence' : 'day';
+  if(d===2 && state.choices[2]){ const t=DAYS[2].opts[state.choices[2].pick].emailTarget||1; state.emailTarget=t; state.emailCount=t; }
+  render();
+}
+const continueDay = () => { const d=state.day; if(d>=9){ state.reviewOpen=worstDay(); state.screen='friday'; render(); return; } goDay(d+1); };
 const gotoEnd = () => { saveBest(); const u=state.choices.filter(c=>c&&!c.safe).length; state.screen = u>=3 ? 'incident' : 'cert'; render(); };
 
 function worstDay(){ let w=0,b=-1; state.choices.forEach((c,i)=>{ if(c&&!c.safe&&c.bump>b){b=c.bump;w=i;} }); return b<0?0:w; }
@@ -295,13 +301,9 @@ function computeVals(){
   const bad=cc&&!cc.safe, good=cc&&cc.safe;
   const badCol=bad?RED:(good?GREEN:'#1a1a1a');
 
-  let activeIdx=-1;
-  if(s.screen==='day'||s.screen==='consequence') activeIdx=d;
-  else if(['friday','incident','cert'].includes(s.screen)) activeIdx=10;
-  const dots=Array.from({length:10},(_,i)=>({ fill:i<activeIdx?'#1a1a1a':(i===activeIdx?'#c0392b':'#fff'), active:i===activeIdx }));
-
-  const filled=Math.round(s.confidence*22);
-  const confBlocks=Array.from({length:22},(_,i)=>({fill:i<filled?'#c0392b':'#fff', fresh:(i>=s.lastFilled&&i<filled)}));
+  const firstUnanswered=(()=>{ const idx=s.choices.findIndex(c=>!c); return idx<0?9:idx; })();
+  const dots=Array.from({length:10},(_,i)=>{ const c=s.choices[i]; return { i, answered:!!c, safe:!!(c&&c.safe), active:(i===d&&(s.screen==='day'||s.screen==='consequence')), reachable:(i<=firstUnanswered) }; });
+  const exposedPct=Math.min(100, Math.round(100*s.choices.reduce((a,c)=>a+(c&&!c.safe?(c.bump||0):0),0)));
 
   const order=s.orders[d]||[0,1,2];
   const dayOptions=order.map((origIdx,i)=>{ const o=dd.opts[origIdx]; return { text:o.text, letter:String.fromCharCode(65+i), radius:RADII[i%3], rot:ROT[i%3], origIdx, day:d, i }; });
@@ -345,10 +347,10 @@ function computeVals(){
     consTitle:meta.title||'', consCaption:cc?cc.cap:'', consNote:cc?cc.note:'',
     continueLabel:d>=9?DATASET.seeReviewLabel:'Next day',
     dayOptions, outRows, envelopes, emailCount:s.emailCount, d,
-    dots, confBlocks, spokes,
+    dots, spokes,
     endLabel:unsafeCount>=3?'Face the consequences':'Get your certificate',
     unsafeCount, cleanCount, habitStatus, toWorkOn, best:readBest(), newBest:!!s.newBest,
-    incidentItems:items, incidentClose, leakPct:Math.round(s.confidence*100),
+    incidentItems:items, incidentClose, leakPct:exposedPct,
     stampCol, stampTop, stampMid, stampBot, certSub,
     today:new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}),
     name:s.name
@@ -461,37 +463,25 @@ const SCENES = {
 
 // ---- screen renderers ----
 function chrome(v){
-  const dots = v.dots.map(dot=>`<div style="width:13px;height:13px;border:2px solid #1a1a1a;border-radius:255px 15px 225px 15px/15px 225px 15px 255px;background:${dot.fill}${dot.active?';animation:dotPulse .5s ease':''}"></div>`).join('');
-  const blocks = v.confBlocks.map(b=>`<div class="${b.fresh?'confpop':''}" style="width:8px;height:13px;border:1px solid #1a1a1a;background:${b.fill}"></div>`).join('');
   const onDay=(state.screen==='day'||state.screen==='consequence');
   const counterLabel = onDay ? v.dayCounter : DATASET.doneLabel;
-  return `<div data-noprint style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px">
-      <div>
-        <div style="font-size:10.5px;color:#555;margin-bottom:5px">${esc(counterLabel)}</div>
-        <div style="display:flex;gap:5px">${dots}</div>
-      </div>
-      <div style="text-align:right;max-width:270px">
-        <div style="font-size:10.5px;line-height:1.3;color:#555;margin-bottom:4px">${esc(DATASET.confLabel)}</div>
-        <div style="display:flex;gap:2px;justify-content:flex-end">${blocks}</div>
-        <div style="font-size:8.5px;color:#c0392b;margin-top:3px;letter-spacing:.5px">${esc(DATASET.meterLegend[0])} &rarr; ${esc(DATASET.meterLegend[1])}</div>
-      </div>
+  const dots = v.dots.map(dot=>{
+    const border=dot.answered?(dot.safe?GREEN:RED):'#c9c7be';
+    const bg=dot.answered?(dot.safe?GREEN:RED):'#fff';
+    return `<div ${dot.reachable?`data-goday="${dot.i}" `:''}title="Decision ${dot.i+1}${dot.answered?(dot.safe?' — handled well':' — went poorly'):''}" style="${dot.reachable?'cursor:pointer;':''}width:17px;height:17px;flex:none;border:2px solid ${border};border-radius:255px 15px 225px 15px/15px 225px 15px 255px;background:${bg}${dot.active?';outline:2px solid #1a1a1a;outline-offset:2px':''}"></div>`;
+  }).join('');
+  return `<div data-noprint style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:2px dashed #cfcdc4">
+    <div>
+      <div style="font-size:11px;color:#555;margin-bottom:3px">${esc(counterLabel)}</div>
+      <div style="font-size:10px;color:#999"><span style="color:${GREEN}">&#9679;</span> safe answer &nbsp; <span style="color:${RED}">&#9679;</span> risky answer &nbsp; <span style="color:#c9c7be">&#9711;</span> not yet</div>
     </div>
-    <div style="position:relative;height:38px;overflow:hidden;border-bottom:2px dashed #cfcdc4">
-      <svg viewBox="0 0 40 48" width="30" height="36" fill="none" stroke="#1a1a1a" stroke-width="2.4" stroke-linecap="round" style="position:absolute;bottom:0;left:-52px;animation:stroll 9s linear infinite">
-        <g class="fig" filter="url(#rough2)" style="animation:waddle .62s ease-in-out infinite">
-          <path d="M14 6 q-4 4 -2 9 q3 5 8 5 q6 0 7 -6 q1 -6 -5 -8 q-5 -2 -8 0z"/>
-          <path d="M20 18 q-1 8 0 15"/>
-          <path d="M20 33 q-5 7 -8 14"/><path d="M20 33 q6 6 9 12"/>
-          <path d="M20 23 q-6 3 -9 6"/><path d="M20 23 q6 -3 10 -6"/>
-        </g>
-      </svg>
-    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:62%">${dots}</div>
   </div>`;
 }
 
 function landing(){
   return `<div style="text-align:center;padding-top:24px;animation:fadeUp .5s ease both">
+    ${ORG?`<div style="font-size:12px;color:#555;margin-bottom:10px">Assigned by <b>${esc(ORG)}</b> &middot; onboarding</div>`:''}
     <div style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:3px;color:#777;text-transform:uppercase;margin-bottom:14px">${esc(DATASET.kicker)}</div>
     <h1 style="font-family:'Patrick Hand',cursive;font-size:clamp(44px,10vw,76px);line-height:.95;margin:0 0 6px;font-weight:400">${DATASET.h1}</h1>
     <p style="font-family:'Courier Prime',monospace;font-size:15px;line-height:1.55;max-width:470px;margin:16px auto 32px;color:#333">${esc(DATASET.tagline)}</p>
@@ -510,6 +500,7 @@ function landing(){
     <p style="font-size:11px;color:#999;margin-top:22px">${esc(DATASET.metaLine)}</p>
     <div data-act="about" class="lnk" style="display:inline-block;margin-top:10px;font-size:12px;color:#555">${esc(DATASET.aboutLink)}</div>
     <div><div data-act="facilitator" class="lnk" style="display:inline-block;margin-top:9px;font-size:12px;color:#555">Running this with a group? Get the facilitator pack &rarr;</div></div>
+    <div><div data-act="setup" class="lnk" style="display:inline-block;margin-top:7px;font-size:12px;color:#555">For teams: track completion in a Google Sheet &rarr;</div></div>
     <div style="margin-top:24px;font-size:11px;color:#aaa">Built from a 10-scenario template &mdash; reskin it for your org in one file.</div>
     <div style="margin-top:6px"><a href="${DATASET.otherEdition.href}" style="font-size:11px;color:#999;text-decoration:underline;text-underline-offset:3px">${esc(DATASET.otherEdition.label)}</a></div>
   </div>`;
@@ -564,6 +555,7 @@ function dayScreen(v){
   }
   const opts=v.dayOptions.map(o=>`<div data-choose="${o.day}:${o.origIdx}" class="opt" style="border:2.5px solid #1a1a1a;border-radius:${o.radius};padding:15px 18px;background:#fff;font-size:14.5px;line-height:1.45;animation-delay:${(0.06*o.i+0.05).toFixed(2)}s" data-rot="${o.rot}"><b>${o.letter}.</b> ${esc(o.text)}</div>`).join('');
   return `<div style="animation:fadeUp .4s ease both">
+    <div data-act="prevday" class="lnk" style="font-size:12px;color:#888;margin-bottom:8px">&larr; ${d>0?'previous decision':'back to start'}</div>
     <div style="font-family:'Patrick Hand',cursive;font-size:15px;color:#c0392b;letter-spacing:1px;text-transform:uppercase">${esc(v.dayChapter)}</div>
     <h2 style="font-family:'Patrick Hand',cursive;font-size:clamp(30px,7vw,40px);margin:2px 0 16px;font-weight:400">${esc(v.dayTitle)}</h2>
     <div style="border:2.5px solid #1a1a1a;border-radius:14px 245px 20px 245px/245px 18px 245px 20px;padding:16px 20px;background:#fff;font-size:14.5px;line-height:1.55;margin-bottom:16px">${esc(v.daySetupCaption)}</div>
@@ -625,6 +617,7 @@ function consequence(v){
     ${teach}
     <div style="text-align:center">
       <div data-act="continue" class="blob" style="display:inline-block;font-family:'Patrick Hand',cursive;font-size:22px;padding:10px 34px;border:3px solid #1a1a1a;border-radius:${BLOB_RADIUS}">${esc(v.continueLabel)} &rarr;</div>
+      <div style="margin-top:12px"><span data-act="reconsider" class="lnk" style="font-size:12px;color:#888">&larr; reconsider this decision</span></div>
     </div>
   </div>`;
 }
@@ -711,6 +704,7 @@ function incident(v){
     <div style="max-width:530px;margin:18px auto 0;font-size:12px;color:#555">${esc(DATASET.leakLabel)}: <b style="color:#c0392b"><span id="leakNum" data-to="${v.leakPct}">0</span>%</b></div>
     <div style="font-family:'Patrick Hand',cursive;font-size:24px;margin:22px auto 26px;max-width:490px;color:#1a1a1a">${esc(v.incidentClose)}</div>
     <div data-act="cert" class="blob" style="display:inline-block;font-family:'Patrick Hand',cursive;font-size:22px;padding:10px 34px;border:3px solid #1a1a1a;border-radius:${BLOB_RADIUS}">Collect your certificate anyway &rarr;</div>
+    <div style="margin-top:14px"><span data-act="toreview" class="lnk" style="font-size:12px;color:#888">&larr; back to review</span></div>
   </div>`;
 }
 
@@ -745,8 +739,17 @@ function cert(v){
       <div data-act="card" class="blob" style="font-family:'Patrick Hand',cursive;font-size:20px;padding:9px 28px;border:3px solid #1a1a1a;border-radius:${BLOB_RADIUS}">Save report card &#128247;</div>
       <div data-act="print" class="blob" style="font-family:'Patrick Hand',cursive;font-size:20px;padding:9px 28px;border:3px solid #1a1a1a;border-radius:15px 255px 15px 225px/225px 15px 255px 15px">Print it &#128424;</div>
       <div data-act="replay" class="blob2" style="font-family:'Courier Prime',monospace;font-size:14px;padding:11px 24px;border:2px solid #1a1a1a;border-radius:${BLOB_RADIUS};background:transparent">Try to beat it &#8635;</div>
-      <div data-act="about" class="blob2" style="font-family:'Courier Prime',monospace;font-size:14px;padding:11px 24px;border:2px solid #1a1a1a;border-radius:15px 255px 15px 225px/225px 15px 255px 15px;background:transparent">Sources &amp; why</div>
+      <div data-act="toreview" class="blob2" style="font-family:'Courier Prime',monospace;font-size:14px;padding:11px 24px;border:2px solid #1a1a1a;border-radius:15px 255px 15px 225px/225px 15px 255px 15px;background:transparent">Review decisions</div>
+      <div data-act="about" class="blob2" style="font-family:'Courier Prime',monospace;font-size:14px;padding:11px 24px;border:2px solid #1a1a1a;border-radius:${BLOB_RADIUS};background:transparent">Sources &amp; why</div>
     </div>
+    ${REPORT?`<div data-noprint style="max-width:440px;margin:20px auto 0;border:2px solid #1a1a1a;border-radius:10px;padding:14px 18px;background:#fff;text-align:center">
+      <div style="font-family:'Patrick Hand',cursive;font-size:18px;margin-bottom:4px">Record your completion${ORG?' for '+esc(ORG):''}</div>
+      ${state.reported
+        ? `<div style="font-size:13px;color:${GREEN}">&#9745; Recorded. Your ${ORG?esc(ORG)+' ':''}administrator can now see you have completed this course.</div>`
+        : `<div style="font-size:12px;color:#555;margin-bottom:8px">Submit your details so your ${ORG?esc(ORG)+' ':''}administrator can mark this onboarding complete.</div>
+           <input id="emailInput" placeholder="you@company.com" style="font-family:'Courier Prime',monospace;font-size:14px;width:100%;box-sizing:border-box;border:2px solid #1a1a1a;border-radius:6px;padding:8px 10px;margin-bottom:8px;background:#f4f3ee"/>
+           <div data-act="report" class="blob" style="display:inline-block;font-family:'Patrick Hand',cursive;font-size:16px;padding:7px 22px;border:2.5px solid #1a1a1a;border-radius:${BLOB_RADIUS}">Submit &rarr;</div>`}
+    </div>`:''}
   </div>`;
 }
 
@@ -888,6 +891,56 @@ function mountCursor(){
   document.head.appendChild(st);
 }
 
+// ---- organisation completion tracking ----
+function reportCompletion(){
+  if(!REPORT) return;
+  const v=computeVals();
+  const email=(document.getElementById('emailInput')||{}).value||'';
+  const payload={ org:ORG, course:DATASET.brandName, name:state.name||'', email:email, score:v.cleanCount+'/10', exposedPct:v.leakPct, completedAt:new Date().toISOString() };
+  try{ fetch(REPORT,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)}); }catch(e){}
+  state.reported=true; Sfx.play('success'); render();
+}
+function copyTrackedLink(){
+  const org=(document.getElementById('org_in')||{}).value.trim();
+  const url=(document.getElementById('report_in')||{}).value.trim();
+  let base=''; try{ base=location.origin+location.pathname; }catch(e){ base=''; }
+  const link=base+'?org='+encodeURIComponent(org)+'&report='+encodeURIComponent(url);
+  const out=document.getElementById('link_out'); if(out) out.textContent=link;
+  try{ navigator.clipboard.writeText(link); }catch(e){}
+  const st=document.getElementById('copied_msg'); if(st) st.textContent='Copied to clipboard ✓';
+}
+const APPS_SCRIPT_CODE=`function doPost(e){
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('Completions') || ss.insertSheet('Completions');
+  if (sh.getLastRow() === 0)
+    sh.appendRow(['Timestamp','Org','Course','Name','Email','Score','Exposed %']);
+  var d = JSON.parse(e.postData.contents);
+  sh.appendRow([new Date(), d.org, d.course, d.name, d.email, d.score, d.exposedPct]);
+  return ContentService.createTextOutput('ok');
+}`;
+function orgSetup(){
+  return `<div style="animation:fadeUp .4s ease both;max-width:620px;margin:0 auto">
+    <div data-act="landing" class="lnk" style="font-size:13px;color:#555;margin-bottom:14px">&larr; back</div>
+    <h2 style="font-family:'Patrick Hand',cursive;font-size:32px;margin:0 0 4px;font-weight:400">Track completion for your team</h2>
+    <p style="font-size:14px;line-height:1.6;color:#333;margin:0 0 16px">Turn this course into a trackable onboarding task. When someone finishes, their name, email and score are sent to a Google Sheet you own — so you can see who has completed it and who has not. It takes about five minutes to set up, and nothing is sent anywhere unless you connect a sheet.</p>
+    <div style="font-family:'Patrick Hand',cursive;font-size:19px;margin:18px 0 6px">1. Create the sheet + script</div>
+    <p style="font-size:13.5px;line-height:1.6;color:#333;margin:0 0 8px">Create a new Google Sheet. Open <b>Extensions &rarr; Apps Script</b>, delete any code, paste the script below, and click <b>Save</b>.</p>
+    <pre style="background:#1a1a1a;color:#f4f3ee;font-family:'Courier Prime',monospace;font-size:11.5px;line-height:1.5;padding:12px 14px;border-radius:8px;overflow-x:auto;white-space:pre">${esc(APPS_SCRIPT_CODE)}</pre>
+    <div style="font-family:'Patrick Hand',cursive;font-size:19px;margin:18px 0 6px">2. Deploy it as a web app</div>
+    <p style="font-size:13.5px;line-height:1.6;color:#333;margin:0 0 8px">Click <b>Deploy &rarr; New deployment</b>. Choose type <b>Web app</b>, set <b>Execute as: Me</b> and <b>Who has access: Anyone</b>, then <b>Deploy</b> and authorise. Copy the <b>Web app URL</b> it gives you.</p>
+    <div style="font-family:'Patrick Hand',cursive;font-size:19px;margin:18px 0 6px">3. Generate your tracked link</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px">
+      <input id="org_in" placeholder="Your organisation name (e.g. Acme Ltd)" style="font-family:'Courier Prime',monospace;font-size:13.5px;border:2px solid #1a1a1a;border-radius:6px;padding:9px 11px;background:#fff"/>
+      <input id="report_in" placeholder="Paste your Web app URL here" style="font-family:'Courier Prime',monospace;font-size:13.5px;border:2px solid #1a1a1a;border-radius:6px;padding:9px 11px;background:#fff"/>
+      <div data-act="copylink" class="blob" style="align-self:flex-start;font-family:'Patrick Hand',cursive;font-size:17px;padding:8px 22px;border:2.5px solid #1a1a1a;border-radius:${BLOB_RADIUS}">Generate &amp; copy link</div>
+    </div>
+    <div id="link_out" style="font-family:'Courier Prime',monospace;font-size:12px;word-break:break-all;background:#fff;border:2px dashed #1a1a1a;border-radius:6px;padding:10px 12px;color:#333;min-height:20px"></div>
+    <div id="copied_msg" style="font-size:12px;color:${GREEN};margin-top:6px;height:16px"></div>
+    <p style="font-size:12.5px;line-height:1.6;color:#555;margin:16px 0 8px">Share that link (or embed it in your onboarding system) instead of the plain address. The course runs exactly the same; it just reports completion to your sheet at the end. You can revoke access any time by removing the Apps Script deployment.</p>
+    <p style="font-size:12px;color:#888;line-height:1.5">Privacy: completion data goes only to <em>your</em> Google account. This site stores nothing and has no server. For anything beyond a simple sheet, point the same link at any endpoint that accepts a POST (Zapier, Make, your LMS webhook, etc.).</p>
+  </div>`;
+}
+
 // ---- render + events ----
 function render(){
   const v=computeVals();
@@ -902,6 +955,7 @@ function render(){
     case 'incident': html+=incident(v); break;
     case 'cert': html+=cert(v); break;
     case 'facilitator': html+=facilitator(); break;
+    case 'setup': html+=orgSetup(); break;
   }
   const app=document.getElementById('app');
   app.innerHTML=html;
@@ -923,6 +977,9 @@ function render(){
   app.querySelectorAll('[data-review]').forEach(el=>{
     el.addEventListener('click',()=>{ Sfx.play('select'); state.reviewOpen=Number(el.getAttribute('data-review')); render(); });
   });
+  app.querySelectorAll('[data-goday]').forEach(el=>{
+    el.addEventListener('click',()=>{ Sfx.play('click'); goDay(Number(el.getAttribute('data-goday'))); });
+  });
   app.querySelectorAll('[data-act]').forEach(el=>{
     el.addEventListener('click',()=>{
       Sfx.play(el.getAttribute('data-act')==='cite'?'select':'click');
@@ -935,6 +992,12 @@ function render(){
         case 'cert': state.screen='cert'; render(); break;
         case 'cite': state.citeOpen=!state.citeOpen; render(); break;
         case 'shirt': { const cur=state.shirtColor||DATASET.character.shirt; const i=SHIRTS.indexOf(cur); state.shirtColor=SHIRTS[(i+1+SHIRTS.length)%SHIRTS.length]; render(); break; }
+        case 'prevday': if(state.day>0){ goDay(state.day-1); } else { state.screen='landing'; render(); } break;
+        case 'reconsider': state.screen='day'; state.citeOpen=false; render(); break;
+        case 'toreview': state.screen='friday'; render(); break;
+        case 'setup': state.screen='setup'; render(); break;
+        case 'report': reportCompletion(); break;
+        case 'copylink': copyTrackedLink(); break;
         case 'print': window.print(); break;
         case 'restart': restart(); break;
         case 'replay': start(); break;
